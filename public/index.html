@@ -1,115 +1,34 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>DRS | Staff Booking </title>
-    <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #121212; color: white; padding: 40px; }
-        .box { max-width: 600px; margin: auto; background: #1e1e1e; padding: 25px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-        .btn { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; margin: 5px; }
-        .btn-blue { background: #007bff; color: white; }
-        .btn-green { background: #28a745; color: white; }
-        .btn-red { background: #dc3545; color: white; font-size: 11px; }
-        .session-card { background: #2b2b2b; padding: 15px; margin: 15px 0; border-radius: 8px; border-left: 5px solid #007bff; text-align: left; }
-        .hidden { display: none; }
-        .participant-list { font-size: 12px; color: #aaa; margin-top: 5px; }
-    </style>
-</head>
-<body>
-    <div class="box">
-        <h1>DRS | Staff Training Bookings</h1>
+async function renderSessions() {
+    const res = await fetch('/api/sessions');
+    const sessions = await res.json();
+    const list = document.getElementById('session-list');
+    
+    list.innerHTML = sessions.map(s => {
+        const hasJoined = s.participants.some(p => p.userId == user.userId);
         
-        <div id="login-screen">
-         <button class="btn btn-blue" onclick="location.href='https://apis.roblox.com/oauth/v1/authorize?client_id=3883210808784608768&response_type=code&redirect_uri=https%3A%2F%2Fdrs-support-bookings.onrender.com%2Fcallback&scope=openid+profile'">
-        Login with Roblox
-         </button>
-       </div>
-        <div id="app-screen" class="hidden">
-            <p>User: <strong id="user-name"></strong> | Rank: <span id="user-rank"></span></p>
-            
-            <div id="admin-tools" class="hidden">
-                <button class="btn btn-green" onclick="createSession()">+ New Session</button>
+        // Admins see the full list of names; Staff just see the count
+        const participantInfo = user.rank >= 98 
+            ? `Staff Booked: ${s.participants.map(p => p.username).join(', ') || 'None'}`
+            : `Spots Taken: ${s.participants.length}`;
+
+        return `
+            <div class="session-card">
+                <strong>${s.sessionName}</strong><br>
+                Host: ${s.hostName}<br>
+                <div class="participant-list">${participantInfo}</div>
+                
+                <div style="margin-top:10px;">
+                    ${user.rank < 98 && !hasJoined ? 
+                        `<button class="btn btn-blue" onclick="joinSession('${s._id}')">Book My Spot</button>` : ''}
+                    
+                    ${hasJoined ? `<span style="color:#28a745;">✔️ Booked</span>` : ''}
+
+                    ${user.rank >= 98 ? `
+                        <button class="btn btn-blue" style="background:#6c757d" onclick="editSession('${s._id}', '${s.sessionName}')">Edit</button>
+                        <button class="btn btn-red" onclick="cancelSession('${s._id}')">End</button>
+                    ` : ''}
+                </div>
             </div>
-
-            <hr>
-            <h3>Active Sessions</h3>
-            <div id="session-list">Loading...</div>
-        </div>
-    </div>
-
-    <script>
-        const params = new URLSearchParams(window.location.search);
-        const user = {
-            username: params.get('username'),
-            userId: params.get('userId'),
-            rank: parseInt(params.get('rank')) || 0
-        };
-
-        if (user.username) {
-            document.getElementById('login-screen').classList.add('hidden');
-            document.getElementById('app-screen').classList.remove('hidden');
-            document.getElementById('user-name').innerText = user.username;
-            document.getElementById('user-rank').innerText = user.rank;
-            if (user.rank >= 98) document.getElementById('admin-tools').classList.remove('hidden');
-            renderSessions();
-        }
-
-        async function renderSessions() {
-            const res = await fetch('/api/sessions');
-            const sessions = await res.json();
-            const list = document.getElementById('session-list');
-            
-            list.innerHTML = sessions.map(s => {
-                const hasJoined = s.participants.some(p => p.userId == user.userId);
-                return `
-                    <div class="session-card">
-                        <strong>${s.sessionName}</strong><br>
-                        Hosted by: ${s.hostName}<br>
-                        <div class="participant-list">Staff Booked: ${s.participants.length}</div>
-                        
-                        ${user.rank < 98 && !hasJoined ? 
-                            `<button class="btn btn-blue" onclick="joinSession('${s._id}')">Book My Spot</button>` : ''}
-                        
-                        ${hasJoined ? `<span style="color:#28a745;">✔️ You are booked</span>` : ''}
-
-                        ${user.rank >= 98 ? 
-                            `<button class="btn btn-red" onclick="cancelSession('${s._id}')">End Session</button>` : ''}
-                    </div>
-                `;
-            }).join('') || "No active sessions.";
-        }
-
-        async function createSession() {
-            const name = prompt("Enter Qualification/Session Name:");
-            if (!name) return;
-            await fetch('/api/create', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ name, ...user })
-            });
-            renderSessions();
-        }
-
-        async function joinSession(id) {
-            await fetch('/api/join', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ sessionId: id, ...user })
-            });
-            renderSessions();
-        }
-
-        async function cancelSession(id) {
-            if (!confirm("Delete this session?")) return;
-            await fetch('/api/cancel', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ id, rank: user.rank })
-            });
-            renderSessions();
-        }
-        function login() {
-            window.location.href = 'https://drs-support-bookings.onrender.com/auth/roblox';
-        }
-    </script>
-</body>
-</html>
+        `;
+    }).join('') || "No active sessions.";
+}
