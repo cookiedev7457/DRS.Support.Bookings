@@ -3,12 +3,14 @@
     --dark-grey: #191919;
     --card-bg: #252525;
     --text: #ffffff;
+    --studio-color: #f39c12; /* Orange for Studio */
+    --product-color: #9b59b6; /* Purple for Product */
 }
 
 body {
     background-color: var(--dark-grey);
     color: var(--text);
-    font-family: 'Inter', sans-serif; /* Clean, modern font */
+    font-family: 'Inter', sans-serif;
     margin: 0;
 }
 
@@ -26,7 +28,6 @@ body {
     color: white;
     border: none;
     padding: 10px 25px;
-    font-family: 'Inter', sans-serif;
     font-weight: bold;
     cursor: pointer;
     border-radius: 4px;
@@ -45,7 +46,19 @@ body {
     border-left: 5px solid var(--roblox-blue);
 }
 
-.hidden { display: none; }
+.qual-badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: bold;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    display: inline-block;
+}
 
+.studio { background-color: var(--studio-color); }
+.product { background-color: var(--product-color); }
+
+.hidden { display: none; }
+.admin-inputs select { padding: 8px; border-radius: 4px; border: none; margin-right: 5px; }
 .add-btn { background: #28a745; color: white; border: none; padding: 10px; cursor: pointer; border-radius: 4px; }
-.status-tag { color: var(--roblox-blue); font-weight: bold; }
