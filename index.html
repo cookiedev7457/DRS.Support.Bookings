@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>DRS Training Portal</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <nav class="navbar">
+        <div class="logo">DRS Studio</div>
+        <button id="auth-btn" class="login-btn" onclick="handleAuth()">Login with Roblox</button>
+    </nav>
+
+    <div class="container">
+        <header>
+            <h1>Staff Training Bookings</h1>
+            <p>Select an available slot for Studio or Product qualifications.</p>
+        </header>
+
+        <section id="admin-panel" class="hidden">
+            <div class="card admin-card">
+                <h3>Admin: Add Training Slot</h3>
+                <div class="admin-inputs">
+                    <input type="text" id="host-name" placeholder="Host Username">
+                    <input type="datetime-local" id="slot-time">
+                    <button class="add-btn" onclick="createNewSlot()">Add Slot</button>
+                </div>
+            </div>
+        </section>
+
+        <section class="booking-list" id="slot-container">
+            </section>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
