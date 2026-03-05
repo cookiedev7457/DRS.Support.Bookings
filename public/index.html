@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Studio Qualifications</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #121212; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .card { background: #1e1e1e; padding: 40px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: 400px; text-align: center; }
+        .btn { background: #0084ff; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; transition: 0.3s; }
+        .btn:hover { background: #0073e6; }
+        .admin-section { margin-top: 20px; border-top: 1px solid #333; pt: 20px; color: #ffca28; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Studio Booking</h1>
+        <div id="auth-ui">
+            <button class="btn" onclick="window.location.href='/auth/roblox'">Login with Roblox</button>
+        </div>
+        
+        <div id="main-ui" class="hidden">
+            <p>Logged in as: <strong id="user-name"></strong></p>
+            <div id="admin-tools" class="hidden">
+                <div class="admin-section">
+                    <h3>Admin Controls</h3>
+                    <button class="btn" style="background: #28a745;">+ Create Session</button>
+                    <button class="btn" style="background: #dc3545; margin-top: 10px;">Cancel Session</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        if (params.has('user')) {
+            document.getElementById('auth-ui').classList.add('hidden');
+            document.getElementById('main-ui').classList.remove('hidden');
+            document.getElementById('user-name').innerText = params.get('user');
+            
+            if (params.get('admin') === 'true') {
+                document.getElementById('admin-tools').classList.remove('hidden');
+            }
+        }
+    </script>
+</body>
+</html>
