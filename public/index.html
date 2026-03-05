@@ -17,10 +17,12 @@
 <body>
     <div class="box">
         <h1>DRS | Staff Training Bookings</h1>
-
+        
         <div id="login-screen">
-         <button class="btn btn-blue" onclick="location.href='/auth/roblox'">Login with Roblox</button>
-        </div>
+         <button class="btn btn-blue" onclick="location.href='https://apis.roblox.com/oauth/v1/authorize?client_id=3883210808784608768&response_type=code&redirect_uri=https%3A%2F%2Fdrs-support-bookings.onrender.com%2Fcallback&scope=openid+profile'">
+        Login with Roblox
+         </button>
+       </div>
         <div id="app-screen" class="hidden">
             <p>User: <strong id="user-name"></strong> | Rank: <span id="user-rank"></span></p>
             
