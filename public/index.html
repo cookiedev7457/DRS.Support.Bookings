@@ -1,45 +1,93 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Studio Qualifications</title>
+    <meta charset="UTF-8">
+    <title>DRS Support Bookings</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #121212; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .card { background: #1e1e1e; padding: 40px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: 400px; text-align: center; }
-        .btn { background: #0084ff; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; transition: 0.3s; }
-        .btn:hover { background: #0073e6; }
-        .admin-section { margin-top: 20px; border-top: 1px solid #333; pt: 20px; color: #ffca28; }
+        body { font-family: 'Segoe UI', sans-serif; background: #1a1a1a; color: white; text-align: center; padding: 50px; }
+        .container { max-width: 600px; margin: auto; background: #2d2d2d; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        .btn { padding: 12px 25px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; margin: 10px; }
+        .btn-login { background: #0084ff; color: white; }
+        .btn-create { background: #28a745; color: white; }
+        .btn-cancel { background: #dc3545; color: white; font-size: 12px; }
+        .session-card { background: #3d3d3d; padding: 15px; margin: 15px 0; border-radius: 8px; border-left: 5px solid #0084ff; text-align: left; }
         .hidden { display: none; }
     </style>
 </head>
 <body>
-    <div class="card">
-        <h1>Studio Booking</h1>
-        <div id="auth-ui">
-            <button class="btn" onclick="window.location.href='/auth/roblox'">Login with Roblox</button>
-        </div>
+    <div class="container">
+        <h1>DRS Booking System</h1>
         
-        <div id="main-ui" class="hidden">
-            <p>Logged in as: <strong id="user-name"></strong></p>
+        <div id="login-view">
+            <button class="btn btn-login" onclick="login()">Login with Roblox</button>
+        </div>
+
+        <div id="dashboard" class="hidden">
+            <p>Welcome, <span id="username-display"></span>!</p>
             <div id="admin-tools" class="hidden">
-                <div class="admin-section">
-                    <h3>Admin Controls</h3>
-                    <button class="btn" style="background: #28a745;">+ Create Session</button>
-                    <button class="btn" style="background: #dc3545; margin-top: 10px;">Cancel Session</button>
-                </div>
+                <button class="btn btn-create" onclick="createSession()">+ Create Session</button>
             </div>
+            <hr>
+            <h3>Active Sessions</h3>
+            <div id="session-list">Loading...</div>
         </div>
     </div>
 
     <script>
         const params = new URLSearchParams(window.location.search);
-        if (params.has('user')) {
-            document.getElementById('auth-ui').classList.add('hidden');
-            document.getElementById('main-ui').classList.remove('hidden');
-            document.getElementById('user-name').innerText = params.get('user');
-            
-            if (params.get('admin') === 'true') {
-                document.getElementById('admin-tools').classList.remove('hidden');
-            }
+        const user = {
+            name: params.get('username'),
+            id: params.get('userId'),
+            rank: parseInt(params.get('rank')) || 0
+        };
+
+        if (user.name) {
+            document.getElementById('login-view').classList.add('hidden');
+            document.getElementById('dashboard').classList.remove('hidden');
+            document.getElementById('username-display').innerText = user.name;
+            if (user.rank >= 98) document.getElementById('admin-tools').classList.remove('hidden');
+            fetchSessions();
+        }
+
+        function login() {
+            // Replace with your actual Render Client ID and Redirect URI
+            const clientId = "YOUR_ROBLOX_CLIENT_ID";
+            const redirect = encodeURIComponent("https://your-app-name.onrender.com/callback");
+            window.location.href = `https://apis.roblox.com/oauth/v1/authorize?client_id=${clientId}&redirect_uri=${redirect}&scope=openid+profile&response_type=code`;
+        }
+
+        async function fetchSessions() {
+            const res = await fetch('/api/sessions');
+            const sessions = await res.json();
+            const list = document.getElementById('session-list');
+            list.innerHTML = sessions.length ? sessions.map(s => `
+                <div class="session-card">
+                    <strong>${s.sessionName}</strong><br>
+                    Host: ${s.hostName}
+                    ${user.rank >= 98 ? `<button class="btn btn-cancel" onclick="cancelSession('${s._id}')">Cancel</button>` : ''}
+                </div>
+            `).join('') : "No active sessions found.";
+        }
+
+        async function createSession() {
+            const name = prompt("Enter Session Name:");
+            if (!name) return;
+            await fetch('/api/create', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ name, ...user })
+            });
+            fetchSessions();
+        }
+
+        async function cancelSession(id) {
+            if (!confirm("Cancel this session?")) return;
+            await fetch('/api/cancel', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ id, rank: user.rank })
+            });
+            fetchSessions();
         }
     </script>
 </body>
