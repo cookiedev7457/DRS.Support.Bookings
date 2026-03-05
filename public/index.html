@@ -3,232 +3,111 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DRS | Session Booking System</title>
+    <title>DRS Booking</title>
     <style>
-        :root {
-            --primary: #0084ff;
-            --success: #28a745;
-            --danger: #dc3545;
-            --bg: #121212;
-            --card: #1e1e1e;
-            --text: #ffffff;
-        }
-
-        body { 
-            font-family: 'Segoe UI', sans-serif; 
-            background-color: var(--bg); 
-            color: var(--text); 
-            margin: 0;
-            display: flex;
-            justify-content: center;
-            padding: 40px 20px;
-        }
-
-        .container { 
-            width: 100%;
-            max-width: 700px; 
-            background: var(--card); 
-            padding: 30px; 
-            border-radius: 12px; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5); 
-        }
-
-        .header { text-align: center; margin-bottom: 30px; }
-        h1 { margin: 0; color: var(--primary); }
-        
-        .user-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: #252525;
-            padding: 10px 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            font-size: 14px;
-        }
-
-        .btn { 
-            padding: 10px 20px; 
-            border: none; 
-            border-radius: 6px; 
-            cursor: pointer; 
-            font-weight: 600; 
-            transition: 0.2s;
-        }
-
-        .btn:hover { opacity: 0.8; }
+        :root { --primary: #0084ff; --bg: #121212; --card: #1e1e1e; --text: #fff; }
+        body { font-family: sans-serif; background: var(--bg); color: var(--text); padding: 20px; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 600px; background: var(--card); padding: 25px; border-radius: 10px; }
+        .btn { padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
         .btn-blue { background: var(--primary); color: white; }
-        .btn-green { background: var(--success); color: white; margin-bottom: 20px; }
-        .btn-red { background: var(--danger); color: white; font-size: 11px; }
-        .btn-outline { background: transparent; border: 1px solid var(--primary); color: var(--primary); }
-
-        .session-card { 
-            background: #252525; 
-            padding: 20px; 
-            margin: 15px 0; 
-            border-radius: 10px; 
-            border-left: 4px solid var(--primary);
-        }
-
-        .participant-area { 
-            background: #1a1a1a; 
-            padding: 10px; 
-            border-radius: 6px; 
-            font-size: 13px; 
-            color: #ccc;
-            margin: 10px 0;
-        }
-
+        .btn-red { background: #dc3545; color: white; }
+        .session-card { background: #252525; padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 4px solid var(--primary); }
         .hidden { display: none; }
-        .tag { font-size: 11px; background: #333; padding: 2px 6px; border-radius: 4px; color: #aaa; }
     </style>
 </head>
 <body>
-
     <div class="container">
-        <div class="header">
-            <h1>DRS Booking System</h1>
+        <h1>DRS Sessions</h1>
+        <div id="user-bar" style="margin-bottom: 20px; display: flex; justify-content: space-between;">
+            <span id="user-info">Guest Mode</span>
+            <button id="auth-btn" class="btn btn-blue" onclick="login()">Login</button>
         </div>
 
-        <div id="user-status" class="user-bar">
-            <span id="user-info">Guest Mode (View Only)</span>
-            <button id="auth-btn" class="btn btn-blue" onclick="startLogin()">Login with Roblox</button>
+        <div id="admin-tools" class="hidden">
+            <button class="btn btn-blue" style="background: #28a745;" onclick="createSession()">+ New Session</button>
         </div>
 
-        <div id="admin-controls" class="hidden" style="text-align: center;">
-            <button class="btn btn-green" onclick="createNewSession()">+ Create New Session</button>
-        </div>
-
-        <hr style="border: 0; border-top: 1px solid #333; margin: 20px 0;">
-
-        <h3>Active Sessions</h3>
+        <hr style="border:0; border-top: 1px solid #333; margin: 20px 0;">
         <div id="session-list">Loading sessions...</div>
     </div>
 
     <script>
-        let currentUser = {
-            username: null,
-            userId: null,
-            rank: 0,
-            isLoggedIn: false
-        };
+        const RENDER_URL = "https://drs-support-bookings.onrender.com";
+        let user = { isLoggedIn: false, userId: null, username: null, rank: 0 };
 
-        window.onload = () => {
+        window.onload = async () => {
             const params = new URLSearchParams(window.location.search);
-            const urlUser = params.get('username');
-            
-            if (urlUser) {
-                currentUser.username = urlUser;
-                currentUser.userId = params.get('userId');
-                currentUser.rank = parseInt(params.get('rank')) || 0;
-                currentUser.isLoggedIn = true;
+            const uid = params.get('userId');
+            const uname = params.get('username');
 
-                // Clean URL
-                window.history.replaceState({}, document.title, "/");
-                updateUI();
+            if (uid) {
+                user.userId = uid;
+                user.username = uname;
+                
+                // 1. WIPE URL IMMEDIATELY (Safety)
+                window.history.replaceState({}, document.title, window.location.pathname);
+
+                // 2. ASK SERVER FOR REAL RANK
+                const res = await fetch(`${RENDER_URL}/api/check-rank?userId=${uid}`);
+                const data = await res.json();
+                
+                user.rank = data.rank;
+                user.isLoggedIn = true;
+
+                document.getElementById('user-info').innerText = `Hello, ${uname}`;
+                document.getElementById('auth-btn').innerText = "Logout";
+                document.getElementById('auth-btn').onclick = () => location.href = window.location.pathname;
+
+                if (data.isAdmin) document.getElementById('admin-tools').classList.remove('hidden');
             }
-
             fetchSessions();
         };
 
-        function startLogin() {
-            window.location.href = "https://authorize.roblox.com/?client_id=3883210808784608768&response_type=code&redirect_uri=https%3A%2F%2Fdrs-support-bookings.onrender.com%2Fcallback&scope=openid+profile&step=accountConfirm";
-        }
-
-        function updateUI() {
-            if (currentUser.isLoggedIn) {
-                document.getElementById('user-info').innerText = `Logged in as: ${currentUser.username}`;
-                document.getElementById('auth-btn').innerText = "Logout";
-                document.getElementById('auth-btn').onclick = () => window.location.href = "/";
-                
-                if (currentUser.rank >= 98) {
-                    document.getElementById('admin-controls').classList.remove('hidden');
-                }
-            }
-        }
-
         async function fetchSessions() {
-            try {
-                const res = await fetch('/api/sessions');
-                const sessions = await res.json();
-                renderSessions(sessions);
-            } catch (err) {
-                document.getElementById('session-list').innerText = "Could not load sessions.";
-            }
+            const res = await fetch(`${RENDER_URL}/api/sessions`);
+            const sessions = await res.json();
+            const list = document.getElementById('session-list');
+            list.innerHTML = sessions.map(s => `
+                <div class="session-card">
+                    <strong>${s.sessionName}</strong><br>
+                    <small>Host: ${s.hostName}</small><br>
+                    <p>${s.participants.length} Booked</p>
+                    ${!user.isLoggedIn ? `<button class="btn" onclick="login()">Login to Book</button>` : 
+                      user.rank >= 98 ? `<button class="btn btn-red" onclick="endSession('${s._id}')">End</button>` :
+                      `<button class="btn btn-blue" onclick="joinSession('${s._id}')">Book Spot</button>`}
+                </div>
+            `).join('') || "No active sessions.";
         }
 
-        function renderSessions(sessions) {
-            const list = document.getElementById('session-list');
-            if (sessions.length === 0) {
-                list.innerHTML = "<p style='color: #666;'>No active sessions found.</p>";
-                return;
-            }
+        function login() {
+            window.location.href = "https://authorize.roblox.com/?client_id=3883210808784608768&response_type=code&redirect_uri=https%3A%2F%2Fdrs-support-bookings.onrender.com%2Fcallback&scope=openid+profile";
+        }
 
-            list.innerHTML = sessions.map(s => {
-                const isJoined = currentUser.isLoggedIn && s.participants.some(p => p.userId == currentUser.userId);
-                
-                // Admin sees names, Staff/Guests see count
-                const participantDisplay = (currentUser.rank >= 98) 
-                    ? s.participants.map(p => p.username).join(', ') || 'Empty'
-                    : `${s.participants.length} staff booked`;
-
-                return `
-                    <div class="session-card">
-                        <div style="display:flex; justify-content:space-between;">
-                            <strong>${s.sessionName}</strong>
-                            <span class="tag">Host: ${s.hostName}</span>
-                        </div>
-                        
-                        <div class="participant-area">
-                            <strong>Bookings:</strong> ${participantDisplay}
-                        </div>
-
-                        <div style="margin-top: 15px;">
-                            ${!currentUser.isLoggedIn 
-                                ? `<button class="btn btn-outline" onclick="startLogin()">Login to Book</button>` 
-                                : ''}
-
-                            ${currentUser.isLoggedIn && currentUser.rank < 98 && !isJoined 
-                                ? `<button class="btn btn-blue" onclick="joinSession('${s._id}')">Book My Spot</button>` 
-                                : ''}
-                            
-                            ${isJoined ? `<span style="color:var(--success); font-weight:bold;">✔️ Booked</span>` : ''}
-
-                            ${currentUser.rank >= 98 ? `
-                                <button class="btn btn-red" onclick="cancelSession('${s._id}')">End Session</button>
-                            ` : ''}
-                        </div>
-                    </div>
-                `;
-            }).join('');
+        async function createSession() {
+            const name = prompt("Session Name:");
+            if(!name) return;
+            await fetch(`${RENDER_URL}/api/create`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ name, userId: user.userId, username: user.username })
+            });
+            fetchSessions();
         }
 
         async function joinSession(sessionId) {
-            const res = await fetch('/api/join', {
+            await fetch(`${RENDER_URL}/api/join`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ sessionId, userId: currentUser.userId, username: currentUser.username })
-            });
-            if (res.ok) fetchSessions();
-        }
-
-        async function createNewSession() {
-            const name = prompt("Session Name:");
-            if (!name) return;
-            await fetch('/api/create', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, userId: currentUser.userId, username: currentUser.username })
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ sessionId, userId: user.userId, username: user.username })
             });
             fetchSessions();
         }
 
-        async function cancelSession(id) {
-            if (!confirm("End session?")) return;
-            await fetch('/api/cancel', {
+        async function endSession(id) {
+            await fetch(`${RENDER_URL}/api/cancel`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id, userId: currentUser.userId })
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ id, userId: user.userId })
             });
             fetchSessions();
         }
