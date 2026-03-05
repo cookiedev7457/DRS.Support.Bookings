@@ -3,37 +3,109 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DRS Booking</title>
+    <title>DRS | Booking System</title>
     <style>
-        :root { --primary: #0084ff; --bg: #121212; --card: #1e1e1e; --text: #fff; }
-        body { font-family: sans-serif; background: var(--bg); color: var(--text); padding: 20px; display: flex; justify-content: center; }
-        .container { width: 100%; max-width: 600px; background: var(--card); padding: 25px; border-radius: 10px; }
-        .btn { padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        :root {
+            --primary: #0084ff;
+            --success: #28a745;
+            --danger: #dc3545;
+            --bg: #121212;
+            --card: #1e1e1e;
+            --text: #ffffff;
+        }
+
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background-color: var(--bg); 
+            color: var(--text); 
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            padding: 40px 20px;
+        }
+
+        .container { 
+            width: 100%;
+            max-width: 650px; 
+            background: var(--card); 
+            padding: 30px; 
+            border-radius: 12px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5); 
+        }
+
+        .user-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #252525;
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+        }
+
+        .btn { 
+            padding: 10px 20px; 
+            border: none; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-weight: 600; 
+            transition: 0.2s;
+        }
+
         .btn-blue { background: var(--primary); color: white; }
-        .btn-red { background: #dc3545; color: white; }
-        .session-card { background: #252525; padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 4px solid var(--primary); }
+        .btn-green { background: var(--success); color: white; margin-bottom: 20px; width: 100%; }
+        .btn-red { background: var(--danger); color: white; font-size: 12px; }
+        .btn-outline { background: transparent; border: 1px solid var(--primary); color: var(--primary); }
+
+        .session-card { 
+            background: #252525; 
+            padding: 20px; 
+            margin: 15px 0; 
+            border-radius: 10px; 
+            border-left: 4px solid var(--primary);
+        }
+
+        .participant-list { 
+            background: #1a1a1a; 
+            padding: 10px; 
+            border-radius: 6px; 
+            font-size: 13px; 
+            color: #ccc;
+            margin: 10px 0;
+        }
+
         .hidden { display: none; }
+        h3 { margin-top: 0; color: var(--primary); }
     </style>
 </head>
 <body>
+
     <div class="container">
-        <h1>DRS Sessions</h1>
-        <div id="user-bar" style="margin-bottom: 20px; display: flex; justify-content: space-between;">
-            <span id="user-info">Guest Mode</span>
-            <button id="auth-btn" class="btn btn-blue" onclick="login()">Login</button>
+        <div class="user-bar">
+            <span id="user-display">Guest Mode</span>
+            <button id="login-btn" class="btn btn-blue" onclick="login()">Login with Roblox</button>
         </div>
 
-        <div id="admin-tools" class="hidden">
-            <button class="btn btn-blue" style="background: #28a745;" onclick="createSession()">+ New Session</button>
+        <div id="admin-controls" class="hidden">
+            <button class="btn btn-green" onclick="createSession()">+ Create New Session</button>
         </div>
 
-        <hr style="border:0; border-top: 1px solid #333; margin: 20px 0;">
-        <div id="session-list">Loading sessions...</div>
+        <div id="session-container">
+            <h3>Active Sessions</h3>
+            <div id="session-list">Loading sessions...</div>
+        </div>
     </div>
 
     <script>
+        // CHANGE THIS TO YOUR RENDER URL
         const RENDER_URL = "https://drs-support-bookings.onrender.com";
-        let user = { isLoggedIn: false, userId: null, username: null, rank: 0 };
+        
+        let currentUser = {
+            userId: null,
+            username: null,
+            isAdmin: false,
+            isLoggedIn: false
+        };
 
         window.onload = async () => {
             const params = new URLSearchParams(window.location.search);
@@ -41,55 +113,92 @@
             const uname = params.get('username');
 
             if (uid) {
-                user.userId = uid;
-                user.username = uname;
-                
-                // 1. WIPE URL IMMEDIATELY (Safety)
+                // 1. CLEAN THE URL (Security)
+                // This removes the userId and username from the address bar immediately
                 window.history.replaceState({}, document.title, window.location.pathname);
 
-                // 2. ASK SERVER FOR REAL RANK
-                const res = await fetch(`${RENDER_URL}/api/check-rank?userId=${uid}`);
-                const data = await res.json();
-                
-                user.rank = data.rank;
-                user.isLoggedIn = true;
+                // 2. SERVER HANDSHAKE
+                // We ask the Render server for the rank privately
+                try {
+                    const res = await fetch(`${RENDER_URL}/api/check-rank?userId=${uid}`);
+                    const data = await res.json();
+                    
+                    currentUser = {
+                        userId: uid,
+                        username: uname,
+                        isAdmin: data.isAdmin,
+                        isLoggedIn: true
+                    };
 
-                document.getElementById('user-info').innerText = `Hello, ${uname}`;
-                document.getElementById('auth-btn').innerText = "Logout";
-                document.getElementById('auth-btn').onclick = () => location.href = window.location.pathname;
-
-                if (data.isAdmin) document.getElementById('admin-tools').classList.remove('hidden');
+                    updateUI();
+                } catch (e) {
+                    console.error("Rank check failed.");
+                }
             }
             fetchSessions();
         };
 
-        async function fetchSessions() {
-            const res = await fetch(`${RENDER_URL}/api/sessions`);
-            const sessions = await res.json();
-            const list = document.getElementById('session-list');
-            list.innerHTML = sessions.map(s => `
-                <div class="session-card">
-                    <strong>${s.sessionName}</strong><br>
-                    <small>Host: ${s.hostName}</small><br>
-                    <p>${s.participants.length} Booked</p>
-                    ${!user.isLoggedIn ? `<button class="btn" onclick="login()">Login to Book</button>` : 
-                      user.rank >= 98 ? `<button class="btn btn-red" onclick="endSession('${s._id}')">End</button>` :
-                      `<button class="btn btn-blue" onclick="joinSession('${s._id}')">Book Spot</button>`}
-                </div>
-            `).join('') || "No active sessions.";
-        }
-
         function login() {
+            // Your custom Roblox OAuth Link
             window.location.href = "https://authorize.roblox.com/?client_id=3883210808784608768&response_type=code&redirect_uri=https%3A%2F%2Fdrs-support-bookings.onrender.com%2Fcallback&scope=openid+profile";
         }
 
+        function updateUI() {
+            document.getElementById('user-display').innerText = `Logged in as: ${currentUser.username}`;
+            document.getElementById('login-btn').innerText = "Logout";
+            document.getElementById('login-btn').onclick = () => window.location.href = window.location.pathname;
+
+            if (currentUser.isAdmin) {
+                document.getElementById('admin-controls').classList.remove('hidden');
+            }
+        }
+
+        async function fetchSessions() {
+            const list = document.getElementById('session-list');
+            try {
+                const res = await fetch(`${RENDER_URL}/api/sessions`);
+                const sessions = await res.json();
+                
+                if (sessions.length === 0) {
+                    list.innerHTML = "<p>No active sessions.</p>";
+                    return;
+                }
+
+                list.innerHTML = sessions.map(s => {
+                    const hasJoined = currentUser.isLoggedIn && s.participants.some(p => p.userId == currentUser.userId);
+                    
+                    return `
+                        <div class="session-card">
+                            <div style="display:flex; justify-content:space-between; align-items:start;">
+                                <div>
+                                    <strong>${s.sessionName}</strong><br>
+                                    <small style="color:#888;">Host: ${s.hostName}</small>
+                                </div>
+                                ${currentUser.isAdmin ? `<button class="btn btn-red" onclick="endSession('${s._id}')">End</button>` : ''}
+                            </div>
+                            
+                            <div class="participant-list">
+                                <strong>Booked:</strong> ${currentUser.isAdmin ? s.participants.map(p => p.username).join(', ') || 'None' : s.participants.length + ' Staff members'}
+                            </div>
+
+                            ${!currentUser.isLoggedIn ? `<button class="btn btn-outline" onclick="login()">Login to Book</button>` : ''}
+                            ${currentUser.isLoggedIn && !currentUser.isAdmin && !hasJoined ? `<button class="btn btn-blue" onclick="joinSession('${s._id}')">Book My Spot</button>` : ''}
+                            ${hasJoined ? `<span style="color:var(--success); font-weight:bold;">✔️ You are booked</span>` : ''}
+                        </div>
+                    `;
+                }).join('');
+            } catch (e) {
+                list.innerText = "Error loading sessions.";
+            }
+        }
+
         async function createSession() {
-            const name = prompt("Session Name:");
-            if(!name) return;
+            const name = prompt("Enter Session Name:");
+            if (!name) return;
             await fetch(`${RENDER_URL}/api/create`, {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ name, userId: user.userId, username: user.username })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, userId: currentUser.userId, username: currentUser.username })
             });
             fetchSessions();
         }
@@ -97,17 +206,18 @@
         async function joinSession(sessionId) {
             await fetch(`${RENDER_URL}/api/join`, {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ sessionId, userId: user.userId, username: user.username })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sessionId, userId: currentUser.userId, username: currentUser.username })
             });
             fetchSessions();
         }
 
         async function endSession(id) {
+            if (!confirm("End this session?")) return;
             await fetch(`${RENDER_URL}/api/cancel`, {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ id, userId: user.userId })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, userId: currentUser.userId })
             });
             fetchSessions();
         }
