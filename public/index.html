@@ -3,26 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DRS | Training Portal</title>
+    <title>DRS | Staff Portal</title>
     <style>
-        :root { --primary: #0084ff; --bg: #050505; --card: #121212; --red: #eb5a46; }
+        :root { --primary: #0084ff; --bg: #050505; --card: #121212; --red: #eb5a46; --gray: #555; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: white; margin: 0; padding: 40px 15px; display: flex; flex-direction: column; align-items: center; }
         .banner { width: 100%; max-width: 420px; margin-bottom: 25px; }
         .container { width: 100%; max-width: 600px; background: var(--card); padding: 30px; border-radius: 12px; border: 1px solid #222; }
         
-        .input-group { margin-bottom: 20px; text-align: center; }
+        .input-group { margin-bottom: 25px; text-align: center; }
         input { background: #000; border: 1px solid #333; color: white; padding: 12px; width: 90%; border-radius: 6px; text-align: center; font-size: 16px; outline: none; transition: 0.3s; }
         input:focus { border-color: var(--primary); }
 
-        .session { background: #181818; padding: 20px; margin: 15px 0; border-radius: 10px; border-left: 4px solid var(--primary); transition: 0.3s; }
+        .session { background: #181818; padding: 20px; margin: 15px 0; border-radius: 10px; border-left: 4px solid var(--primary); }
         .tag { font-size: 10px; padding: 4px 10px; border-radius: 4px; color: #000; font-weight: 800; margin-right: 6px; display: inline-block; margin-bottom: 10px; text-transform: uppercase; }
         
-        .btn { padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; transition: 0.2s; }
+        .dt-badge { display: flex; gap: 10px; margin-bottom: 15px; }
+        .dt-item { background: #222; padding: 5px 10px; border-radius: 5px; font-size: 11px; font-weight: bold; color: var(--primary); border: 1px solid #333; }
+
+        .btn { padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; transition: 0.2s; font-size: 14px; }
         .btn-join { background: var(--primary); color: white; }
         .btn-cancel { background: var(--red); color: white; }
-        .btn:active { transform: scale(0.97); }
-
-        .req { background: #000; padding: 10px; border-radius: 6px; font-size: 13px; color: #aaa; margin: 10px 0; border: 1px solid #222; }
+        
+        .req { background: #000; padding: 10px; border-radius: 6px; font-size: 13px; color: #aaa; margin: 10px 0; border: 1px solid #222; line-height: 1.4; }
         .logo-small { position: fixed; bottom: 15px; right: 15px; width: 40px; opacity: 0.2; }
     </style>
 </head>
@@ -32,11 +34,11 @@
 
     <div class="container">
         <div class="input-group">
-            <p style="font-size: 10px; color: var(--primary); font-weight: 900; margin-bottom: 8px;">VERIFY ROBLOX USERNAME</p>
-            <input type="text" id="username" placeholder="Username..." oninput="syncName()">
+            <p style="font-size: 10px; color: var(--primary); font-weight: 900; margin-bottom: 8px; letter-spacing: 1px;">IDENTIFY STAFF USERNAME</p>
+            <input type="text" id="username" placeholder="Enter Roblox Username..." oninput="syncName()">
         </div>
         
-        <div id="list">Synchronizing with DRS Database...</div>
+        <div id="list">Loading schedule...</div>
     </div>
 
     <img src="https://i.postimg.cc/CKL1xHv7/d-No-Background.png" class="logo-small">
@@ -60,7 +62,7 @@
                 const res = await fetch(`${API}/api/sessions`);
                 sessions = await res.json();
                 render();
-            } catch (e) { document.getElementById('list').innerText = "Database Link Offline"; }
+            } catch (e) { document.getElementById('list').innerText = "System Offline"; }
         }
 
         function render() {
@@ -72,14 +74,21 @@
                 return `
                     <div class="session" style="border-left-color: ${booked ? 'var(--red)' : 'var(--primary)'}">
                         ${s.tags.map(t => `<span class="tag" style="background:${t.color}">${t.name}</span>`).join('')}
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <strong style="font-size:17px;">${s.name}</strong>
-                            <span style="color:var(--primary); font-size:11px; font-weight:bold;">HOST: ${s.host}</span>
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 10px;">
+                            <strong style="font-size:18px; letter-spacing: 0.5px;">${s.name}</strong>
+                            <span style="color:var(--primary); font-size:10px; font-weight:900;">HOST: ${s.host}</span>
                         </div>
-                        <div class="req">${s.requirements}</div>
+                        
+                        <div class="dt-badge">
+                            <div class="dt-item">📅 ${s.date}</div>
+                            <div class="dt-item">⏰ ${s.time}</div>
+                        </div>
+
+                        <div class="req"><strong>NOTES:</strong> ${s.requirements}</div>
+                        
                         ${booked ? 
-                            `<button class="btn btn-cancel" onclick="unbook('${s.checklistId}')">CANCEL BOOKING</button>` : 
-                            `<button class="btn btn-join" onclick="book('${s.checklistId}')">RESERVE SPOT</button>`
+                            `<button class="btn btn-cancel" onclick="unbook('${s.checklistId}')">CANCEL RESERVATION</button>` : 
+                            `<button class="btn btn-join" onclick="book('${s.checklistId}')">BOOK SESSION</button>`
                         }
                     </div>`;
             }).join('');
@@ -87,14 +96,13 @@
 
         async function book(id) {
             const user = document.getElementById('username').value.trim();
-            if(!user) return alert("Enter your username!");
+            if(!user) return alert("Please enter your username first!");
             const res = await fetch(`${API}/api/join`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username: user, checklistId: id })
             });
             if (res.ok) refresh();
-            else alert("Booking failed - Check username.");
         }
 
         async function unbook(id) {
@@ -105,7 +113,6 @@
                 body: JSON.stringify({ username: user, checklistId: id })
             });
             if (res.ok) refresh();
-            else alert("Cancellation failed.");
         }
     </script>
 </body>
