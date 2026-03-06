@@ -58,8 +58,8 @@
             font-weight: bold; 
             text-transform: uppercase; 
             display: inline-block; 
-            background: #444;
             margin-bottom: 10px;
+            color: #000; /* Dark text for better contrast on bright tags */
         }
 
         .btn { 
@@ -108,16 +108,13 @@
         let user = { username: null, loggedIn: false, rank: 0 };
 
         window.onload = async () => {
-            // 1. Check if server redirected here with an error
             const params = new URLSearchParams(window.location.search);
             if (params.get('error') === 'unauthorized') {
                 showUnauthorized();
                 return;
             }
 
-            // 2. SECURE CHECK: Ask server who is logged in via Sessions
             try {
-                // We use credentials: 'include' to send the session cookie to Render
                 const res = await fetch(`${RENDER_URL}/api/me`, { credentials: 'include' });
                 const data = await res.json();
 
@@ -139,7 +136,6 @@
         }
 
         function logout() {
-            // In a session-based system, we redirect to a logout route on the server
             window.location.href = `${RENDER_URL}/logout`;
         }
 
@@ -152,6 +148,27 @@
                     <button class="btn btn-outline" style="width:auto; margin-top:20px;" onclick="window.location.href='index.html'">Return Home</button>
                 </div>
             `;
+        }
+
+        // --- TAG COLOR MAPPING ---
+        function getTagColor(trelloColor) {
+            const colors = {
+                'green': '#61bd4f',
+                'green_light': '#b3dfb3',
+                'yellow': '#f2d600',
+                'yellow_light': '#fcf3ad',
+                'orange': '#ff9f1a',
+                'red': '#eb5a46',
+                'red_light': '#f6c3be',
+                'purple': '#c377e0',
+                'blue': '#0079bf',
+                'blue_light': '#00c2e0',
+                'sky': '#00c2e0',
+                'lime': '#51e898',
+                'pink': '#ff80ce',
+                'black': '#344563'
+            };
+            return colors[trelloColor] || '#888888';
         }
 
         async function fetchSessions() {
@@ -172,7 +189,11 @@
                     return `
                         <div class="session-card">
                             <div style="margin-bottom:10px;">
-                                ${s.tags.map(t => `<span class="tag">${t.name}</span>`).join('')}
+                                ${s.tags.map(t => `
+                                    <span class="tag" style="background-color: ${getTagColor(t.color)};">
+                                        ${t.name}
+                                    </span>
+                                `).join('')}
                             </div>
                             <div style="display:flex; justify-content:space-between; align-items:center;">
                                 <strong style="font-size:18px;">${s.sessionName}</strong>
@@ -205,7 +226,6 @@
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ cardId, sessionName, hostName }),
-                // Required to send session info to server
                 credentials: 'include' 
             });
             if (res.ok) fetchSessions(); else { const d = await res.json(); alert(d.error); }
