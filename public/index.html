@@ -3,223 +3,87 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DRS | Booking System</title>
+    <title>DRS Sessions</title>
     <style>
-        :root {
-            --primary: #0084ff;
-            --success: #28a745;
-            --danger: #dc3545;
-            --bg: #121212;
-            --card: #1e1e1e;
-            --text: #ffffff;
-        }
-
-        body { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            background-color: var(--bg); 
-            color: var(--text); 
-            margin: 0;
-            display: flex;
-            justify-content: center;
-            padding: 40px 20px;
-        }
-
-        .container { 
-            width: 100%;
-            max-width: 650px; 
-            background: var(--card); 
-            padding: 30px; 
-            border-radius: 12px; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5); 
-        }
-
-        .user-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: #252525;
-            padding: 12px 20px;
-            border-radius: 8px;
-            margin-bottom: 25px;
-        }
-
-        .btn { 
-            padding: 10px 20px; 
-            border: none; 
-            border-radius: 6px; 
-            cursor: pointer; 
-            font-weight: 600; 
-            transition: 0.2s;
-        }
-
+        :root { --primary: #0084ff; --bg: #121212; --card: #1e1e1e; --text: #fff; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); padding: 20px; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 600px; background: var(--card); padding: 25px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .session-card { background: #252525; padding: 20px; margin: 15px 0; border-radius: 10px; border-left: 4px solid var(--primary); }
+        .btn { padding: 12px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; transition: 0.2s; }
         .btn-blue { background: var(--primary); color: white; }
-        .btn-green { background: var(--success); color: white; margin-bottom: 20px; width: 100%; }
-        .btn-red { background: var(--danger); color: white; font-size: 12px; }
         .btn-outline { background: transparent; border: 1px solid var(--primary); color: var(--primary); }
-
-        .session-card { 
-            background: #252525; 
-            padding: 20px; 
-            margin: 15px 0; 
-            border-radius: 10px; 
-            border-left: 4px solid var(--primary);
-        }
-
-        .participant-list { 
-            background: #1a1a1a; 
-            padding: 10px; 
-            border-radius: 6px; 
-            font-size: 13px; 
-            color: #ccc;
-            margin: 10px 0;
-        }
-
-        .hidden { display: none; }
-        h3 { margin-top: 0; color: var(--primary); }
+        .btn:hover { opacity: 0.8; }
+        .req-box { font-size: 13px; color: #ccc; background: #1a1a1a; padding: 10px; border-radius: 5px; margin: 10px 0; }
     </style>
 </head>
 <body>
-
     <div class="container">
-        <div class="user-bar">
-            <span id="user-display">Guest Mode</span>
-            <button id="login-btn" class="btn btn-blue" onclick="login()">Login with Roblox</button>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2 style="margin:0;">DRS Trainings</h2>
+            <button id="auth-btn" class="btn btn-blue" style="width:auto;" onclick="login()">Login</button>
         </div>
-
-        <div id="admin-controls" class="hidden">
-            <button class="btn btn-green" onclick="createSession()">+ Create New Session</button>
-        </div>
-
-        <div id="session-container">
-            <h3>Active Sessions</h3>
-            <div id="session-list">Loading sessions...</div>
-        </div>
+        <p id="user-info" style="color:#888; font-size:14px;">Guest Mode</p>
+        <hr style="border:0; border-top: 1px solid #333; margin: 20px 0;">
+        <div id="session-list">Loading sessions from Trello...</div>
     </div>
 
     <script>
-        // CHANGE THIS TO YOUR RENDER URL
         const RENDER_URL = "https://drs-support-bookings.onrender.com";
-        
-        let currentUser = {
-            userId: null,
-            username: null,
-            isAdmin: false,
-            isLoggedIn: false
-        };
+        let user = { isLoggedIn: false, username: null };
 
         window.onload = async () => {
             const params = new URLSearchParams(window.location.search);
-            const uid = params.get('userId');
             const uname = params.get('username');
 
-            if (uid) {
-                // 1. CLEAN THE URL (Security)
-                // This removes the userId and username from the address bar immediately
+            if (uname) {
+                user = { username: uname, isLoggedIn: true };
+                // Wipe the URL for security
                 window.history.replaceState({}, document.title, window.location.pathname);
-
-                // 2. SERVER HANDSHAKE
-                // We ask the Render server for the rank privately
-                try {
-                    const res = await fetch(`${RENDER_URL}/api/check-rank?userId=${uid}`);
-                    const data = await res.json();
-                    
-                    currentUser = {
-                        userId: uid,
-                        username: uname,
-                        isAdmin: data.isAdmin,
-                        isLoggedIn: true
-                    };
-
-                    updateUI();
-                } catch (e) {
-                    console.error("Rank check failed.");
-                }
+                document.getElementById('user-info').innerText = `Welcome, ${uname}`;
+                document.getElementById('auth-btn').innerText = "Logout";
+                document.getElementById('auth-btn').onclick = () => location.href = window.location.pathname;
             }
             fetchSessions();
         };
 
         function login() {
-            // Your custom Roblox OAuth Link
             window.location.href = "https://authorize.roblox.com/?client_id=3883210808784608768&response_type=code&redirect_uri=https%3A%2F%2Fdrs-support-bookings.onrender.com%2Fcallback&scope=openid+profile";
         }
 
-        function updateUI() {
-            document.getElementById('user-display').innerText = `Logged in as: ${currentUser.username}`;
-            document.getElementById('login-btn').innerText = "Logout";
-            document.getElementById('login-btn').onclick = () => window.location.href = window.location.pathname;
-
-            if (currentUser.isAdmin) {
-                document.getElementById('admin-controls').classList.remove('hidden');
-            }
-        }
-
         async function fetchSessions() {
-            const list = document.getElementById('session-list');
             try {
                 const res = await fetch(`${RENDER_URL}/api/sessions`);
                 const sessions = await res.json();
+                const list = document.getElementById('session-list');
                 
-                if (sessions.length === 0) {
-                    list.innerHTML = "<p>No active sessions.</p>";
-                    return;
-                }
-
-                list.innerHTML = sessions.map(s => {
-                    const hasJoined = currentUser.isLoggedIn && s.participants.some(p => p.userId == currentUser.userId);
-                    
-                    return `
-                        <div class="session-card">
-                            <div style="display:flex; justify-content:space-between; align-items:start;">
-                                <div>
-                                    <strong>${s.sessionName}</strong><br>
-                                    <small style="color:#888;">Host: ${s.hostName}</small>
-                                </div>
-                                ${currentUser.isAdmin ? `<button class="btn btn-red" onclick="endSession('${s._id}')">End</button>` : ''}
-                            </div>
-                            
-                            <div class="participant-list">
-                                <strong>Booked:</strong> ${currentUser.isAdmin ? s.participants.map(p => p.username).join(', ') || 'None' : s.participants.length + ' Staff members'}
-                            </div>
-
-                            ${!currentUser.isLoggedIn ? `<button class="btn btn-outline" onclick="login()">Login to Book</button>` : ''}
-                            ${currentUser.isLoggedIn && !currentUser.isAdmin && !hasJoined ? `<button class="btn btn-blue" onclick="joinSession('${s._id}')">Book My Spot</button>` : ''}
-                            ${hasJoined ? `<span style="color:var(--success); font-weight:bold;">✔️ You are booked</span>` : ''}
+                list.innerHTML = sessions.map(s => `
+                    <div class="session-card">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <strong>${s.sessionName}</strong>
+                            <span style="font-size:11px; color:var(--primary);">Host: ${s.hostName}</span>
                         </div>
-                    `;
-                }).join('');
+                        <div class="req-box"><b>Requirements:</b> ${s.requirements}</div>
+                        <p style="font-size:12px; margin:10px 0;">Status: ${s.participants} staff booked</p>
+                        ${!user.isLoggedIn ? 
+                            `<button class="btn btn-outline" onclick="login()">Login to Book</button>` : 
+                            `<button class="btn btn-blue" onclick="joinSession('${s.id}')">Book Spot</button>`}
+                    </div>
+                `).join('') || "No active sessions found.";
             } catch (e) {
-                list.innerText = "Error loading sessions.";
+                document.getElementById('session-list').innerText = "Failed to load sessions. Check if Render is awake.";
             }
         }
 
-        async function createSession() {
-            const name = prompt("Enter Session Name:");
-            if (!name) return;
-            await fetch(`${RENDER_URL}/api/create`, {
+        async function joinSession(cardId) {
+            const res = await fetch(`${RENDER_URL}/api/join`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, userId: currentUser.userId, username: currentUser.username })
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ cardId, username: user.username })
             });
-            fetchSessions();
-        }
-
-        async function joinSession(sessionId) {
-            await fetch(`${RENDER_URL}/api/join`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ sessionId, userId: currentUser.userId, username: currentUser.username })
-            });
-            fetchSessions();
-        }
-
-        async function endSession(id) {
-            if (!confirm("End this session?")) return;
-            await fetch(`${RENDER_URL}/api/cancel`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id, userId: currentUser.userId })
-            });
-            fetchSessions();
+            if (res.ok) {
+                alert("Successfully Booked! Check Trello.");
+                fetchSessions();
+            }
         }
     </script>
 </body>
