@@ -12,15 +12,15 @@ app.use(cors({
     credentials: true 
 }));
 
-// CRITICAL FOR RENDER: Trust the proxy to allow secure cookies
+// Required for Render to trust the cookies coming from GitHub Pages
 app.set('trust proxy', 1); 
 
 app.use(session({
-    secret: 'DRS_ULTIMATE_SECURE_2026',
-    resave: true, // Changed to true to help with persistence
+    secret: 'DRS_SECURE_KEY_2026',
+    resave: true, 
     saveUninitialized: false,
     proxy: true,
-    name: 'DRS_Session',
+    name: 'DRS_Auth_Session',
     cookie: { 
         secure: true, 
         sameSite: 'none', 
@@ -76,8 +76,8 @@ app.get('/callback', async (req, res) => {
 
         req.session.user = { username: userRes.data.preferred_username, rank: group.role.rank };
         
-        // FORCE SAVE before redirecting to ensure the cookie is set
-        req.session.save((err) => {
+        // Manual save to ensure the cookie is baked before the redirect happens
+        req.session.save(() => {
             res.redirect(`https://cookiedev7457.github.io/DRS.Support.Bookings/public/index.html`);
         });
     } catch (err) { res.status(500).send("Auth Failed"); }
@@ -85,8 +85,8 @@ app.get('/callback', async (req, res) => {
 
 app.get('/logout', (req, res) => {
     req.session.destroy();
-    res.clearCookie('DRS_Session');
+    res.clearCookie('DRS_Auth_Session');
     res.redirect(`https://cookiedev7457.github.io/DRS.Support.Bookings/public/index.html`);
 });
 
-app.listen(10000, () => console.log("System Online"));
+app.listen(10000, () => console.log("DRS Server Online"));
