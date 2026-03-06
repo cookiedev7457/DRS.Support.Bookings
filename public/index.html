@@ -128,7 +128,7 @@
     <div class="container" id="main-container">
         <div class="header">
             <h2 style="margin:0;">DRS Trainings</h2>
-            <button id="auth-btn" class="btn btn-blue" style="width:auto; margin:0;" onclick="'https://authorize.roblox.com/?client_id=3883210808784608768&response_type=code&redirect_uri=https%3A%2F%2Fdrs-support-bookings.onrender.com%2Fcallback&scope=openid+profile&step=accountConfirm'">Login with Roblox</button>
+            <button id="auth-btn" class="btn btn-blue" style="width:auto; margin:0;" onclick="login()">Login with Roblox</button>
         </div>
         
         <p id="user-display">Guest Mode</p>
@@ -139,7 +139,6 @@
     </div>
 
     <script>
-        // Update this to your actual Render URL
         const RENDER_URL = "https://drs-support-bookings.onrender.com";
         let user = { username: null, loggedIn: false, rank: 0 };
 
@@ -149,7 +148,6 @@
             const rank = parseInt(params.get('rank')) || 0;
 
             if (uname) {
-                // --- RANK 45 GATE ---
                 if (rank < 45) {
                     showUnauthorized(rank);
                     return;
@@ -164,9 +162,8 @@
         };
 
         function login() {
-            // This URL triggers your server's Roblox OAuth flow
-            window.location.href = `${RENDER_URL}/callback-trigger`; 
-            // Note: If you haven't made a trigger route, use your full Roblox Auth Link here
+            // Updated logic to use your OAuth link
+            window.location.href = "https://authorize.roblox.com/?client_id=3883210808784608768&response_type=code&redirect_uri=https%3A%2F%2Fdrs-support-bookings.onrender.com%2Fcallback&scope=openid+profile&step=accountConfirm";
         }
 
         function logout() {
