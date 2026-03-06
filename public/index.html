@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DRS | Staff Bookings</title>
+    <title>DRS | Staff Portal</title>
     <style>
         :root { --primary: #0084ff; --bg: #050505; --card: #121212; --text: #ffffff; --gray: #a0a0a0; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 40px 20px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
@@ -32,8 +32,7 @@
             </div>
             <button id="auth-btn" class="btn btn-blue" style="width:auto;" onclick="login()">Login with Roblox</button>
         </div>
-        
-        <div id="session-list">Loading...</div>
+        <div id="session-list">Fetching sessions...</div>
     </div>
 
     <img src="https://i.postimg.cc/CKL1xHv7/d-No-Background.png" alt="Icon" class="corner-logo">
@@ -41,17 +40,10 @@
     <script>
         const RENDER_URL = "https://drs-support-bookings.onrender.com";
         let user = { username: null, loggedIn: false };
-
-        // Robust Tag Color Map
-        const tagMap = { 
-            green: '#61bd4f', yellow: '#f2d600', orange: '#ff9f1a', 
-            red: '#eb5a46', purple: '#c377e0', blue: '#0079bf', 
-            sky: '#00c2e0', lime: '#51e898', black: '#344563' 
-        };
+        const tagMap = { green:'#61bd4f', yellow:'#f2d600', orange:'#ff9f1a', red:'#eb5a46', purple:'#c377e0', blue:'#0079bf', sky:'#00c2e0', lime:'#51e898', black:'#344563' };
 
         window.onload = async () => {
-            // THE FIX: If there is a username in the URL, the redirect failed. 
-            // We strip it to force a clean session check.
+            // Clean URL if Roblox sends it back with params
             if (window.location.search.includes('username=')) {
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
@@ -65,7 +57,7 @@
                     document.getElementById('auth-btn').innerText = "Logout";
                     document.getElementById('auth-btn').onclick = () => location.href = `${RENDER_URL}/logout`;
                 }
-            } catch (e) { console.log("Session Check Failed"); }
+            } catch (e) { console.error("Session Error"); }
             fetchSessions();
         };
 
@@ -88,15 +80,15 @@
                         ${!user.loggedIn ? 
                             '<button class="btn btn-outline" onclick="login()">Login to Book</button>' : 
                             (isHost ? 
-                                '<button class="btn" style="background:#333; color:#666;" disabled>YOU ARE THE HOST</button>' : 
+                                '<button class="btn" style="background:#222; color:#555;" disabled>YOU ARE THE HOST</button>' : 
                                 (isBooked ? 
                                     '<button class="btn" style="background:#440000; color:#fff;">CANCEL BOOKING</button>' : 
-                                    `<button class="btn btn-blue" onclick="join('${s.id}')">RESERVE SPOT</button>`)
+                                    `<button class="btn btn-blue">RESERVE SPOT</button>`)
                             )
                         }
                     </div>`;
                 }).join('');
-            } catch (e) { document.getElementById('session-list').innerHTML = "Fetch Failed."; }
+            } catch (e) { document.getElementById('session-list').innerText = "Database Offline"; }
         }
 
         function login() { location.href = "https://authorize.roblox.com/?client_id=3883210808784608768&response_type=code&redirect_uri=https%3A%2F%2Fdrs-support-bookings.onrender.com%2Fcallback&scope=openid+profile&step=accountConfirm"; }
