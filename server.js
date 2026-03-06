@@ -14,7 +14,7 @@ app.use(cors({
 
 app.set('trust proxy', 1); 
 app.use(session({
-    secret: 'DRS_BRAND_SECURE_2026',
+    secret: 'DRS_SECURE_SESSION_2026',
     resave: false,
     saveUninitialized: false,
     proxy: true,
@@ -49,7 +49,7 @@ app.get('/api/sessions', async (req, res) => {
             };
         });
         res.json(sessions);
-    } catch (err) { res.status(500).json({ error: "API Error" }); }
+    } catch (err) { res.status(500).json({ error: "Fetch Error" }); }
 });
 
 app.get('/callback', async (req, res) => {
