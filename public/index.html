@@ -3,23 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DRS | Staff Portal</title>
+    <title>DRS | Staff Management</title>
     <style>
-        :root { --primary: #0084ff; --bg: #050505; --card: #121212; --text: #ffffff; }
+        :root { --primary: #0084ff; --bg: #050505; --card: #121212; --text: #ffffff; --red: #eb5a46; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 40px 20px; display: flex; flex-direction: column; align-items: center; }
         .main-banner { width: 100%; max-width: 450px; margin-bottom: 20px; filter: drop-shadow(0 0 15px rgba(255,255,255,0.1)); }
-        .container { width: 100%; max-width: 600px; background: var(--card); padding: 30px; border-radius: 15px; border: 1px solid #222; }
+        .container { width: 100%; max-width: 600px; background: var(--card); padding: 30px; border-radius: 15px; border: 1px solid #222; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
         .header { text-align: center; border-bottom: 1px solid #222; padding-bottom: 20px; margin-bottom: 20px; }
         
-        /* Input Styling */
-        .user-input-box { margin-bottom: 20px; text-align: center; }
-        input[type="text"] { background: #000; border: 1px solid #444; color: white; padding: 12px; width: 80%; border-radius: 8px; font-size: 16px; outline: none; transition: 0.3s; }
-        input[type="text"]:focus { border-color: var(--primary); box-shadow: 0 0 10px rgba(0,132,255,0.2); }
+        .user-input-box { margin-bottom: 25px; text-align: center; }
+        input[type="text"] { background: #000; border: 1px solid #444; color: white; padding: 12px; width: 85%; border-radius: 8px; font-size: 16px; outline: none; transition: 0.3s; text-align: center; }
+        input[type="text"]:focus { border-color: var(--primary); }
 
         .session-card { background: #1a1a1a; padding: 20px; margin: 15px 0; border-radius: 12px; border-left: 4px solid var(--primary); }
         .tag { font-size: 10px; padding: 5px 12px; border-radius: 5px; margin-right: 8px; font-weight: 800; color: #000; text-transform: uppercase; display: inline-block; margin-bottom: 12px; }
-        .btn { padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; background: var(--primary); color: white; transition: 0.3s; }
-        .btn:hover { opacity: 0.8; }
+        
+        .btn { padding: 14px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; transition: 0.3s; font-size: 14px; }
+        .btn-book { background: var(--primary); color: white; }
+        .btn-unbook { background: var(--red); color: white; }
+        .btn:hover { transform: scale(0.98); opacity: 0.9; }
+
         .req-box { background: #000; padding: 12px; border-radius: 8px; margin: 15px 0; font-size: 13px; color: #ddd; border: 1px solid #222; }
         .corner-logo { position: fixed; bottom: 20px; right: 20px; width: 45px; opacity: 0.2; pointer-events: none; }
     </style>
@@ -30,24 +33,26 @@
 
     <div class="container">
         <div class="header">
-            <h2 style="margin:0; letter-spacing: 2px;">STAFF PORTAL</h2>
+            <h2 style="margin:0; letter-spacing: 2px; font-weight: 900;">STAFF BOOKINGS</h2>
         </div>
 
         <div class="user-input-box">
-            <p style="font-size: 12px; color: var(--primary); margin-bottom: 8px; font-weight: bold;">ENTER ROBLOX USERNAME TO BOOK</p>
-            <input type="text" id="roblox-user" placeholder="Username..." oninput="saveName()">
+            <p style="font-size: 11px; color: var(--primary); margin-bottom: 10px; font-weight: 900; text-transform: uppercase;">Verify Identity: Enter Roblox Username</p>
+            <input type="text" id="roblox-user" placeholder="Type Username..." oninput="handleTyping()">
         </div>
         
-        <div id="session-list">Loading sessions...</div>
+        <div id="session-list">Connecting to Trello...</div>
     </div>
 
     <img src="https://i.postimg.cc/CKL1xHv7/d-No-Background.png" class="corner-logo">
 
     <script>
         const RENDER_URL = "https://drs-support-bookings.onrender.com";
+        let currentSessions = [];
 
-        function saveName() {
+        function handleTyping() {
             localStorage.setItem('drs_username', document.getElementById('roblox-user').value);
+            renderUI(); // Re-render to update buttons immediately
         }
 
         window.onload = () => {
@@ -59,32 +64,57 @@
         async function fetchSessions() {
             try {
                 const res = await fetch(`${RENDER_URL}/api/sessions`);
-                const data = await res.json();
-                document.getElementById('session-list').innerHTML = data.map(s => `
-                    <div class="session-card">
-                        ${s.tags.map(t => `<span class="tag" style="background:${t.color}">${t.name}</span>`).join('')}
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <strong>${s.name}</strong>
-                            <span style="color:var(--primary); font-size:11px;">HOST: ${s.host}</span>
-                        </div>
-                        <div class="req-box">${s.requirements}</div>
-                        <button class="btn" onclick="join('${s.checklistId}')">RESERVE SPOT</button>
-                    </div>`).join('');
-            } catch (e) { document.getElementById('session-list').innerText = "Database Offline"; }
+                currentSessions = await res.json();
+                renderUI();
+            } catch (e) { document.getElementById('session-list').innerText = "Database Offline."; }
         }
 
-        async function join(id) {
+        function renderUI() {
+            const username = document.getElementById('roblox-user').value.trim().toLowerCase();
+            const list = document.getElementById('session-list');
+
+            list.innerHTML = currentSessions.map(s => {
+                const isBooked = s.participants.some(p => p.name.toLowerCase() === username);
+
+                return `
+                    <div class="session-card" style="border-left-color: ${isBooked ? 'var(--red)' : 'var(--primary)'}">
+                        ${s.tags.map(t => `<span class="tag" style="background:${t.color}">${t.name}</span>`).join('')}
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <strong style="font-size:18px;">${s.name}</strong>
+                            <span style="color:var(--primary); font-size:11px; font-weight:bold;">HOST: ${s.host}</span>
+                        </div>
+                        <div class="req-box"><strong>REQS:</strong> ${s.requirements}</div>
+                        
+                        ${isBooked ? 
+                            `<button class="btn btn-unbook" onclick="cancel('${s.checklistId}')">CANCEL BOOKING</button>` : 
+                            `<button class="btn btn-book" onclick="book('${s.checklistId}')">RESERVE SPOT</button>`
+                        }
+                    </div>`;
+            }).join('');
+        }
+
+        async function book(id) {
             const user = document.getElementById('roblox-user').value.trim();
-            if(!user) return alert("Please enter your Roblox username first!");
+            if(!user) return alert("Please enter your username first!");
 
             const res = await fetch(`${RENDER_URL}/api/join`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username: user, checklistId: id })
             });
-            const data = await res.json();
-            if (res.ok) { alert("Successfully Joined!"); fetchSessions(); }
-            else { alert(data.error || "Failed to join."); }
+            if (res.ok) { fetchSessions(); } 
+            else { const d = await res.json(); alert(d.error); }
+        }
+
+        async function cancel(id) {
+            const user = document.getElementById('roblox-user').value.trim();
+            const res = await fetch(`${RENDER_URL}/api/unbook`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: user, checklistId: id })
+            });
+            if (res.ok) { fetchSessions(); } 
+            else { alert("Failed to cancel."); }
         }
     </script>
 </body>
