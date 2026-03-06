@@ -6,22 +6,21 @@ require('dotenv').config();
 
 const app = express();
 
-// 1. MIDDLEWARE SETUP
+// --- MIDDLEWARE ---
 app.use(express.json());
 app.use(cors({ 
     origin: 'https://cookiedev7457.github.io', 
-    credentials: true // Crucial for session cookies to work
+    credentials: true 
 }));
 
-// 2. SESSION CONFIGURATION
 app.use(session({
-    secret: 'drs_secure_session_key_99', // Change this to a random string
+    secret: 'DRS_SUPER_SECRET_KEY_2026', // Change this to any random string
     resave: false,
     saveUninitialized: false,
     cookie: { 
-        secure: true, // Set to true if using HTTPS (Render provides this)
-        sameSite: 'none', // Required for cross-site cookies between Render and GitHub
-        maxAge: 3600000 * 24 // 24 hours
+        secure: true, 
+        sameSite: 'none', 
+        maxAge: 3600000 * 12 // 12 Hours
     }
 }));
 
@@ -33,17 +32,25 @@ const {
 
 const MY_ROBLOX_GROUP_ID = 12734419;
 
-// 3. DISCORD WEBHOOK HELPER
+// --- DISCORD WEBHOOK WITH RATE LIMIT PROTECTION ---
 async function sendDiscordAlert(title, message, color = 0x0084ff) {
     if (!DISCORD_WEBHOOK_URL) return;
     try {
         await axios.post(DISCORD_WEBHOOK_URL, {
             embeds: [{ title, description: message, color, timestamp: new Date() }]
         });
-    } catch (err) { console.error("Webhook Error:", err.message); }
+    } catch (err) { 
+        if (err.response && err.response.status === 429) {
+            console.log("Discord Rate Limit Hit - Skipping this alert.");
+        } else {
+            console.error("Webhook Error:", err.message);
+        }
+    }
 }
 
-// 4. SECURE USER CHECK (Frontend asks: "Who am I?")
+// --- ROUTES ---
+
+// Who am I check
 app.get('/api/me', (req, res) => {
     if (req.session.user) {
         res.json({ loggedIn: true, user: req.session.user });
@@ -52,17 +59,15 @@ app.get('/api/me', (req, res) => {
     }
 });
 
-// 5. FETCH SESSIONS
+// Fetch Trello Cards
 app.get('/api/sessions', async (req, res) => {
     try {
         const url = `https://api.trello.com/1/lists/${TRELLO_LIST_ID}/cards?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}&checklists=all`;
         const response = await axios.get(url);
-        
         const sessions = response.data.map(card => {
             const cleanDesc = card.desc.replace(/\*\*/g, '');
             const hostMatch = cleanDesc.match(/Host:\s*(.*)/i);
             const reqMatch = cleanDesc.match(/Requirements:\s*(.*)/i);
-            
             return {
                 id: card.id,
                 sessionName: card.name,
@@ -76,10 +81,9 @@ app.get('/api/sessions', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Fetch Failed" }); }
 });
 
-// 6. JOIN SESSION (Checks session user)
+// Join
 app.post('/api/join', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ error: "Not logged in" });
-
     const { cardId, sessionName, hostName } = req.body;
     const { username } = req.session.user;
 
@@ -89,32 +93,25 @@ app.post('/api/join', async (req, res) => {
         const checkUrl = `https://api.trello.com/1/cards/${cardId}/checklists?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`;
         const checkRes = await axios.get(checkUrl);
         let checklistId = checkRes.data[0]?.id;
-
         if (!checklistId) {
             const newCheck = await axios.post(checkUrl, { name: "Confirmed Staff" });
             checklistId = newCheck.data.id;
         }
-
-        await axios.post(`https://api.trello.com/1/checklists/${checklistId}/checkItems?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`, {
-            name: username
-        });
-
-        await sendDiscordAlert("📅 Session Booked", `**${username}** joined **${sessionName}**\n**Host:** ${hostName}`, 0x00ff00);
+        await axios.post(`https://api.trello.com/1/checklists/${checklistId}/checkItems?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`, { name: username });
+        await sendDiscordAlert("📅 Session Booked", `**${username}** joined **${sessionName}**`, 0x00ff00);
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: "Join Failed" }); }
 });
 
-// 7. UNBOOK SESSION
+// Unbook
 app.post('/api/unbook', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ error: "Not logged in" });
     const { cardId, sessionName } = req.body;
     const { username } = req.session.user;
-
     try {
         const checkUrl = `https://api.trello.com/1/cards/${cardId}/checklists?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`;
         const checkRes = await axios.get(checkUrl);
         const checklist = checkRes.data[0];
-        
         if (checklist) {
             const item = checklist.checkItems.find(i => i.name === username);
             if (item) {
@@ -126,7 +123,7 @@ app.post('/api/unbook', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Unbook Failed" }); }
 });
 
-// 8. OAUTH CALLBACK (Saves Session)
+// OAuth Callback
 app.get('/callback', async (req, res) => {
     try {
         const code = req.query.code;
@@ -146,19 +143,19 @@ app.get('/callback', async (req, res) => {
         const rank = groupData ? groupData.role.rank : 0;
 
         if (rank < 45) {
-            await sendDiscordAlert("🚫 Access Denied", `**${username}** (Rank ${rank}) was blocked.`, 0xff4747);
+            await sendDiscordAlert("🚫 Access Denied", `**${username}** (Rank ${rank}) blocked.`, 0xff4747);
             return res.redirect(`https://cookiedev7457.github.io/DRS.Support.Bookings/public/index.html?error=unauthorized`);
         }
 
-        // SAVE TO SESSION
         req.session.user = { username, rank };
-
         await sendDiscordAlert("🔑 System Login", `**${username}** (Rank ${rank}) logged in.`, 0x0084ff);
+        
+        // --- FIXED: Redirect to CLEAN URL ---
         res.redirect(`https://cookiedev7457.github.io/DRS.Support.Bookings/public/index.html`);
     } catch (err) { res.status(500).send("Auth Failed"); }
 });
 
-// 9. LOGOUT
+// Logout
 app.get('/logout', (req, res) => {
     req.session.destroy();
     res.redirect(`https://cookiedev7457.github.io/DRS.Support.Bookings/public/index.html`);
