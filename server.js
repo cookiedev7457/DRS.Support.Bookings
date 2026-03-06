@@ -12,12 +12,15 @@ app.use(cors({
     credentials: true 
 }));
 
+// CRITICAL FOR RENDER: Trust the proxy to allow secure cookies
 app.set('trust proxy', 1); 
+
 app.use(session({
-    secret: 'DRS_SECURE_SESSION_2026',
-    resave: false,
+    secret: 'DRS_ULTIMATE_SECURE_2026',
+    resave: true, // Changed to true to help with persistence
     saveUninitialized: false,
     proxy: true,
+    name: 'DRS_Session',
     cookie: { 
         secure: true, 
         sameSite: 'none', 
@@ -30,7 +33,10 @@ const { TRELLO_KEY, TRELLO_TOKEN, TRELLO_LIST_ID, CLIENT_ID, CLIENT_SECRET, REDI
 const MY_ROBLOX_GROUP_ID = 12734419;
 
 app.get('/api/me', (req, res) => {
-    res.json(req.session.user ? { loggedIn: true, user: req.session.user } : { loggedIn: false });
+    if (req.session && req.session.user) {
+        return res.json({ loggedIn: true, user: req.session.user });
+    }
+    res.json({ loggedIn: false });
 });
 
 app.get('/api/sessions', async (req, res) => {
@@ -69,7 +75,9 @@ app.get('/callback', async (req, res) => {
         }
 
         req.session.user = { username: userRes.data.preferred_username, rank: group.role.rank };
-        req.session.save(() => {
+        
+        // FORCE SAVE before redirecting to ensure the cookie is set
+        req.session.save((err) => {
             res.redirect(`https://cookiedev7457.github.io/DRS.Support.Bookings/public/index.html`);
         });
     } catch (err) { res.status(500).send("Auth Failed"); }
@@ -77,6 +85,7 @@ app.get('/callback', async (req, res) => {
 
 app.get('/logout', (req, res) => {
     req.session.destroy();
+    res.clearCookie('DRS_Session');
     res.redirect(`https://cookiedev7457.github.io/DRS.Support.Bookings/public/index.html`);
 });
 
