@@ -1,7 +1,7 @@
 {
   "name": "drs-support-bookings",
-  "version": "2.1.0",
-  "description": "Public Booking System for DRS",
+  "version": "1.1.9",
+  "description": "Public Booking System for DRS with Unbook Feature",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
