@@ -1,13 +1,13 @@
 /**
  * ==============================================================================
- * DRS SUPPORT BOOKINGS - ADVANCED SYSTEM (v3.1.0)
+ * DRS STAFF PORTAL - BACKEND v3.2.0 (2026 RELEASE)
  * ==============================================================================
- * FEATURES:
- * - Username-based booking (No OAuth required)
- * - Cancellation / Unbook functionality
- * - Robust Trello synchronization
- * - 200+ Lines of professional production code
- * ==============================================================================
+ * * CORE FEATURES:
+ * - Direct Trello API Integration (Cards & Checklists)
+ * - Username-based registration (Bypass OAuth Cookie Loops)
+ * - Bidirectional Booking (Join / Cancel)
+ * - Robust Error Logging & Request Middleware
+ * * ==============================================================================
  */
 
 const express = require('express');
@@ -18,11 +18,12 @@ require('dotenv').config();
 
 const app = express();
 
-// --- SYSTEM CONFIGURATION ---
+// --- ENVIRONMENT CONFIG ---
 const PORT = process.env.PORT || 10000;
+const GROUP_ID = 12734419; // DRS Main Group
 
-// Professional Trello Label Color Hex Map
-const TAG_COLORS = {
+// Trello Label Hex Map (Matches Trello UI exactly)
+const COLORS = {
     green:  '#61bd4f',
     yellow: '#f2d600',
     orange: '#ff9f1a',
@@ -35,178 +36,178 @@ const TAG_COLORS = {
     black:  '#344563'
 };
 
-// --- MIDDLEWARE STACK ---
-app.use(morgan('combined')); // Detailed logging for Render logs
+// --- MIDDLEWARE ---
+
+// Standard logging to help diagnose Render issues
+app.use(morgan('combined'));
+
+// Standard body parsers
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Secure CORS for GitHub Pages
 app.use(cors({
     origin: 'https://cookiedev7457.github.io',
-    methods: ['GET', 'POST', 'DELETE', 'OPTIONS']
+    methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// --- CORE UTILITY FUNCTIONS ---
+// --- UTILITY LOGIC ---
 
 /**
- * Extracts meta-information from Trello card descriptions.
- * Expected format: Host: [Name] | Requirements: [Text]
+ * Validates Trello Response Data Structure
  */
-function extractMetaData(description) {
-    if (!description) {
-        return { host: 'TBD', reqs: 'Check with Staff' };
-    }
+const isValidCard = (card) => {
+    return card && card.id && card.name && Array.isArray(card.checklists);
+};
+
+/**
+ * Parses Metadata from the Card Description
+ * Matches: "Host: Username" and "Requirements: Text"
+ */
+function getMetaData(description) {
+    if (!description) return { host: 'TBD', requirements: 'None' };
     
-    const sanitized = description.replace(/\*\*/g, '');
-    const hostMatch = sanitized.match(/Host:\s*(.*)/i);
-    const reqsMatch = sanitized.match(/Requirements:\s*(.*)/i);
+    const clean = description.replace(/\*\*/g, '');
+    const h = clean.match(/Host:\s*(.*)/i);
+    const r = clean.match(/Requirements:\s*(.*)/i);
 
     return {
-        host: hostMatch ? hostMatch[1].trim() : 'TBD',
-        reqs: reqsMatch ? reqsMatch[1].trim() : 'Standard Training Rules'
+        host: h ? h[1].trim() : 'TBD',
+        requirements: r ? r[1].trim() : 'Standard Protocols'
     };
-}
-
-/**
- * Validates the existence of Trello API credentials
- */
-function validateCredentials() {
-    const { TRELLO_KEY, TRELLO_TOKEN, TRELLO_LIST_ID } = process.env;
-    return !!(TRELLO_KEY && TRELLO_TOKEN && TRELLO_LIST_ID);
 }
 
 // --- API ROUTES ---
 
 /**
  * GET /api/sessions
- * Returns all active training sessions and participant lists.
+ * Returns formatted training data for the UI
  */
 app.get('/api/sessions', async (req, res) => {
-    if (!validateCredentials()) {
-        console.error("[CRITICAL] Environment variables are missing.");
-        return res.status(500).json({ error: "Server Configuration Error" });
-    }
-
     const { TRELLO_KEY, TRELLO_TOKEN, TRELLO_LIST_ID } = process.env;
+
+    if (!TRELLO_KEY || !TRELLO_TOKEN || !TRELLO_LIST_ID) {
+        return res.status(500).json({ error: "Missing Trello Environment Variables" });
+    }
 
     try {
         const url = `https://api.trello.com/1/lists/${TRELLO_LIST_ID}/cards?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}&checklists=all&labels=true`;
         const response = await axios.get(url);
         
-        const sessions = response.data.map(card => {
-            const meta = extractMetaData(card.desc);
+        const data = response.data.filter(isValidCard).map(card => {
+            const meta = getMetaData(card.desc);
             return {
                 id: card.id,
                 name: card.name,
                 checklistId: card.checklists[0]?.id || null,
                 host: meta.host,
-                requirements: meta.reqs,
-                // We return the raw name and lowercase name for front-end comparison
+                requirements: meta.requirements,
                 participants: card.checklists[0]?.checkItems.map(item => ({
                     id: item.id,
                     name: item.name
                 })) || [],
                 tags: card.labels.map(l => ({ 
                     name: l.name, 
-                    color: TAG_COLORS[l.color] || '#888' 
+                    color: COLORS[l.color] || '#888' 
                 }))
             };
         });
 
-        res.json(sessions);
+        res.status(200).json(data);
     } catch (err) {
-        console.error("[FETCH ERROR]", err.message);
-        res.status(500).json({ error: "Failed to sync with Trello Database" });
+        console.error(`[TRELLO FETCH ERROR]: ${err.message}`);
+        res.status(500).json({ error: "Trello Sync Failed" });
     }
 });
 
 /**
  * POST /api/join
- * Adds a user to a Trello checklist.
+ * Registers a username to a session checklist
  */
 app.post('/api/join', async (req, res) => {
     const { username, checklistId } = req.body;
     const { TRELLO_KEY, TRELLO_TOKEN } = process.env;
 
     if (!username || !checklistId) {
-        return res.status(400).json({ error: "Username and Checklist ID are mandatory." });
+        return res.status(400).json({ error: "Invalid Request: Username/ID Missing" });
     }
 
     try {
-        // Fetch current checklist to check for duplicates
-        const getUrl = `https://api.trello.com/1/checklists/${checklistId}?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`;
-        const currentData = await axios.get(getUrl);
-        
-        const alreadyBooked = currentData.data.checkItems.some(item => 
-            item.name.toLowerCase() === username.toLowerCase()
-        );
+        // Prevent Duplicate Entries
+        const fetchUrl = `https://api.trello.com/1/checklists/${checklistId}?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`;
+        const check = await axios.get(fetchUrl);
+        const exists = check.data.checkItems.some(i => i.name.toLowerCase() === username.toLowerCase());
 
-        if (alreadyBooked) {
-            return res.status(400).json({ error: "You are already registered for this session." });
+        if (exists) {
+            return res.status(400).json({ error: "You are already signed up for this session." });
         }
 
-        // Add to Trello Checklist
-        const postUrl = `https://api.trello.com/1/checklists/${checklistId}/checkItems`;
-        await axios.post(postUrl, null, {
+        // Add User
+        const joinUrl = `https://api.trello.com/1/checklists/${checklistId}/checkItems`;
+        await axios.post(joinUrl, null, {
             params: { name: username, key: TRELLO_KEY, token: TRELLO_TOKEN }
         });
 
-        console.log(`[BOOKING SUCCESS] ${username} registered for ${checklistId}`);
+        console.log(`[ACTION] ${username} JOINED session ${checklistId}`);
         res.status(200).json({ success: true });
     } catch (err) {
-        console.error("[BOOKING ERROR]", err.message);
-        res.status(500).json({ error: "Trello API rejected the booking request." });
+        console.error(`[JOIN FAILED]: ${err.message}`);
+        res.status(500).json({ error: "Trello declined the booking." });
     }
 });
 
 /**
  * POST /api/unbook
- * Removes a user from a Trello checklist.
+ * Removes a username from a session checklist
  */
 app.post('/api/unbook', async (req, res) => {
     const { username, checklistId } = req.body;
     const { TRELLO_KEY, TRELLO_TOKEN } = process.env;
 
     if (!username || !checklistId) {
-        return res.status(400).json({ error: "Missing required cancellation data." });
+        return res.status(400).json({ error: "Missing Cancellation Data" });
     }
 
     try {
-        // 1. Find the Item ID for the specific user on this checklist
-        const listUrl = `https://api.trello.com/1/checklists/${checklistId}?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`;
-        const response = await axios.get(listUrl);
+        // Find the user's specific Item ID on the Trello Checklist
+        const url = `https://api.trello.com/1/checklists/${checklistId}?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`;
+        const checkRes = await axios.get(url);
         
-        const item = response.data.checkItems.find(i => 
-            i.name.toLowerCase() === username.toLowerCase()
-        );
+        const item = checkRes.data.checkItems.find(i => i.name.toLowerCase() === username.toLowerCase());
 
         if (!item) {
-            return res.status(404).json({ error: "Booking not found." });
+            return res.status(404).json({ error: "No existing booking found for this username." });
         }
 
-        // 2. Delete the Item from Trello
-        const deleteUrl = `https://api.trello.com/1/checklists/${checklistId}/checkItems/${item.id}?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`;
-        await axios.delete(deleteUrl);
+        // Delete from Trello
+        const delUrl = `https://api.trello.com/1/checklists/${checklistId}/checkItems/${item.id}?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`;
+        await axios.delete(delUrl);
 
-        console.log(`[UNBOOK SUCCESS] ${username} removed from ${checklistId}`);
+        console.log(`[ACTION] ${username} UNBOOKED session ${checklistId}`);
         res.status(200).json({ success: true });
     } catch (err) {
-        console.error("[UNBOOK ERROR]", err.message);
-        res.status(500).json({ error: "Could not remove booking from Trello." });
+        console.error(`[UNBOOK FAILED]: ${err.message}`);
+        res.status(500).json({ error: "Failed to remove booking from Trello." });
     }
 });
 
 /**
- * Health Check Route
+ * Health Check for Render Monitor
  */
 app.get('/health', (req, res) => {
-    res.status(200).json({ status: "Online", timestamp: new Date() });
+    res.status(200).send("System Operational");
 });
 
-// --- SERVER LIFECYCLE ---
+// --- SERVER INITIALIZATION ---
+
 app.listen(PORT, () => {
     console.log(`
     ================================================
-    DRS STAFF PORTAL BACKEND - VERSION 3.1.0
+    DRS STAFF PORTAL BACKEND - VERSION 3.2.0
     PORT: ${PORT}
-    NODE VERSION: ${process.version}
+    SYSTEM TIME: ${new Date().toISOString()}
+    STATUS: ONLINE
     ================================================
     `);
 });
