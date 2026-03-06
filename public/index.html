@@ -3,133 +3,268 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DRS Trainings</title>
+    <title>DRS Trainings | Booking System</title>
     <style>
-        :root { --primary: #0084ff; --bg: #121212; --card: #1e1e1e; --text: #fff; --red: #ff4747; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); padding: 40px 20px; display: flex; justify-content: center; }
-        .container { width: 100%; max-width: 550px; background: var(--card); padding: 30px; border-radius: 12px; }
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .session-card { background: #252525; padding: 20px; margin: 15px 0; border-radius: 10px; border-left: 5px solid var(--primary); }
-        .btn { padding: 12px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; transition: 0.2s; margin-top: 10px; }
+        :root { 
+            --primary: #0084ff; 
+            --bg: #121212; 
+            --card: #1e1e1e; 
+            --text: #ffffff; 
+            --red: #ff4747; 
+            --green: #00e676;
+            --gray: #888888;
+        }
+
+        body { 
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            background: var(--bg); 
+            color: var(--text); 
+            margin: 0;
+            padding: 40px 20px; 
+            display: flex; 
+            justify-content: center; 
+        }
+
+        .container { 
+            width: 100%; 
+            max-width: 600px; 
+            background: var(--card); 
+            padding: 30px; 
+            border-radius: 12px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 20px; 
+            border-bottom: 1px solid #333;
+            padding-bottom: 15px;
+        }
+
+        #user-display { 
+            font-size: 14px; 
+            color: var(--gray); 
+            margin-bottom: 20px;
+        }
+
+        .session-card { 
+            background: #252525; 
+            padding: 20px; 
+            margin: 15px 0; 
+            border-radius: 10px; 
+            border-left: 5px solid var(--primary); 
+            transition: transform 0.2s;
+        }
+
+        .session-card:hover { transform: translateY(-2px); }
+
+        .tag { 
+            font-size: 10px; 
+            padding: 4px 10px; 
+            border-radius: 4px; 
+            margin-right: 6px; 
+            font-weight: bold; 
+            text-transform: uppercase; 
+            display: inline-block; 
+            margin-bottom: 12px; 
+        }
+
+        .host-tag { 
+            font-size: 12px; 
+            color: var(--primary); 
+            background: rgba(0, 132, 255, 0.1); 
+            padding: 4px 8px; 
+            border-radius: 4px; 
+            font-weight: 500;
+        }
+
+        .req-box {
+            background: #1a1a1a;
+            padding: 10px;
+            border-radius: 6px;
+            margin: 12px 0;
+            font-size: 13px;
+            color: #ccc;
+            border: 1px solid #333;
+        }
+
+        .btn { 
+            padding: 12px 20px; 
+            border: none; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-weight: bold; 
+            width: 100%; 
+            transition: 0.2s; 
+            font-size: 14px;
+        }
+
         .btn-blue { background: var(--primary); color: white; }
-        .btn-red { background: var(--red); color: white; }
-        .btn-outline { background: transparent; border: 1px solid var(--primary); color: var(--primary); }
-        .tag { font-size: 10px; padding: 3px 8px; border-radius: 4px; margin-right: 5px; font-weight: bold; text-transform: uppercase; display: inline-block; margin-bottom: 10px; }
-        .host-tag { font-size: 11px; color: var(--primary); background: #333; padding: 4px 8px; border-radius: 4px; }
-        .req-text { font-size: 13px; color: #aaa; margin: 10px 0; }
+        .btn-blue:hover { background: #0073e6; }
+        
+        .btn-red { background: var(--red); color: white; margin-top: 10px; }
+        .btn-red:hover { background: #e63939; }
+
+        .btn-outline { 
+            background: transparent; 
+            border: 1px solid var(--primary); 
+            color: var(--primary); 
+        }
+
+        .unauthorized-screen {
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            height: 80vh; 
+            text-align: center;
+        }
     </style>
 </head>
 <body>
-    <div class="container">
+
+    <div class="container" id="main-container">
         <div class="header">
-            <h2>DRS Trainings</h2>
-            <button id="auth-btn" class="btn btn-blue" style="width:auto; margin:0;" onclick="login()">Login</button>
+            <h2 style="margin:0;">DRS Trainings</h2>
+            <button id="auth-btn" class="btn btn-blue" style="width:auto; margin:0;" onclick="login()">Login with Roblox</button>
         </div>
-        <p id="user-display" style="color:#666; font-size:13px;">Guest Mode</p>
-        <div id="session-list">Loading...</div>
+        
+        <p id="user-display">Guest Mode</p>
+
+        <div id="session-list">
+            <p style="text-align:center; color:#666;">Loading active sessions...</p>
+        </div>
     </div>
 
     <script>
+        // Update this to your actual Render URL
         const RENDER_URL = "https://drs-support-bookings.onrender.com";
-        let user = { username: null, loggedIn: false };
+        let user = { username: null, loggedIn: false, rank: 0 };
 
         window.onload = async () => {
             const params = new URLSearchParams(window.location.search);
             const uname = params.get('username');
+            const rank = parseInt(params.get('rank')) || 0;
+
             if (uname) {
-                user = { username: uname, loggedIn: true };
-                document.getElementById('user-display').innerText = `Welcome, ${uname}`;
+                // --- RANK 45 GATE ---
+                if (rank < 45) {
+                    showUnauthorized(rank);
+                    return;
+                }
+
+                user = { username: uname, loggedIn: true, rank: rank };
+                document.getElementById('user-display').innerText = `Logged in as: ${uname} (Rank ${rank})`;
                 document.getElementById('auth-btn').innerText = "Logout";
-                document.getElementById('auth-btn').onclick = () => location.href = window.location.pathname;
+                document.getElementById('auth-btn').onclick = logout;
             }
             fetchSessions();
         };
 
         function login() {
-            window.location.href = "https://authorize.roblox.com/?client_id=3883210808784608768&response_type=code&redirect_uri=https%3A%2F%2Fdrs-support-bookings.onrender.com%2Fcallback&scope=openid+profile";
+            // This URL triggers your server's Roblox OAuth flow
+            window.location.href = `${RENDER_URL}/callback-trigger`; 
+            // Note: If you haven't made a trigger route, use your full Roblox Auth Link here
+        }
+
+        function logout() {
+            window.location.href = window.location.pathname;
+        }
+
+        function showUnauthorized(rank) {
+            const container = document.getElementById('main-container');
+            container.innerHTML = `
+                <div class="unauthorized-screen">
+                    <h1 style="color:var(--red); font-size:60px; margin:0;">🚫</h1>
+                    <h2 style="margin-top:10px;">Access Denied</h2>
+                    <p style="color:var(--gray);">You are unauthorized to access this system.</p>
+                    <div style="background:#252525; padding:15px; border-radius:8px; margin:20px 0; width:80%;">
+                        <p style="margin:5px 0;">Required Rank: <strong>45+</strong></p>
+                        <p style="margin:5px 0;">Your Rank: <strong style="color:var(--red);">${rank}</strong></p>
+                    </div>
+                    <button class="btn btn-outline" style="width:auto;" onclick="logout()">Back to Home</button>
+                </div>
+            `;
         }
 
         async function fetchSessions() {
+            const listElement = document.getElementById('session-list');
             try {
                 const res = await fetch(`${RENDER_URL}/api/sessions`);
                 const sessions = await res.json();
-                const list = document.getElementById('session-list');
                 
-                list.innerHTML = sessions.map(s => {
+                if (sessions.length === 0) {
+                    listElement.innerHTML = `<p style="text-align:center; color:#666; padding:20px;">No sessions are currently scheduled.</p>`;
+                    return;
+                }
+
+                listElement.innerHTML = sessions.map(s => {
                     const isBooked = s.participants.includes(user.username);
+                    
                     return `
                         <div class="session-card">
                             <div>
-                                ${s.tags.map(t => `<span class="tag" style="background:${t.color === 'blue_light' ? '#0084ff' : '#444'}">${t.name}</span>`).join('')}
+                                ${s.tags.map(t => `
+                                    <span class="tag" style="background:${getTagColor(t.color)}">${t.name}</span>
+                                `).join('')}
                             </div>
-                            <div style="display:flex; justify-content:space-between;">
-                                <strong>${s.sessionName}</strong>
+                            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                                <strong style="font-size:18px;">${s.sessionName}</strong>
                                 <span class="host-tag">Host: ${s.hostName}</span>
                             </div>
-                            <p class="req-text">Req: ${s.requirements}</p>
-                            <p style="font-size:12px; color:#666;">Booked: ${s.participants.length} staff</p>
+                            
+                            <div class="req-box">
+                                <strong>Requirements:</strong> ${s.requirements}
+                            </div>
+                            
+                            <p style="font-size:12px; color:var(--gray); margin-bottom:15px;">
+                                Current attendees: <strong>${s.participants.length}</strong>
+                            </p>
+
                             ${user.loggedIn ? 
                                 (isBooked ? 
-                                    `<button class="btn btn-red" onclick="unbook('${s.id}')">Unbook Spot</button>` : 
-                                    `<button class="btn btn-blue" onclick="join('${s.id}')">Book Spot</button>`) : 
+                                    `<button class="btn btn-red" onclick="unbook('${s.id}', '${s.sessionName}')">Unbook Spot</button>` : 
+                                    `<button class="btn btn-blue" onclick="join('${s.id}', '${s.sessionName}')">Book Spot</button>`) : 
                                 `<button class="btn btn-outline" onclick="login()">Login to Book</button>`
                             }
                         </div>
                     `;
-                }).join('') || "No active sessions.";
-            } catch (e) { list.innerHTML = "Offline."; }
-        }
-
-        async function join(cardId) {
-            await fetch(`${RENDER_URL}/api/join`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ cardId, username: user.username })
-            });
-            fetchSessions();
-        }
-
-        async function unbook(cardId) {
-            await fetch(`${RENDER_URL}/api/unbook`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ cardId, username: user.username })
-            });
-            fetchSessions();
-        }
-
-    const RENDER_URL = "https://drs-support-bookings.onrender.com";
-    let user = { username: null, loggedIn: false, rank: 0 };
-
-    window.onload = async () => {
-        const params = new URLSearchParams(window.location.search);
-        const uname = params.get('username');
-        const rank = parseInt(params.get('rank')) || 0;
-
-        if (uname) {
-            // THE RANK GATE
-            if (rank < 45) {
-                document.body.innerHTML = `
-                    <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background:#121212; color:white; font-family:sans-serif; text-align:center;">
-                        <h1 style="color:#ff4747; font-size:50px;">🚫 UNAUTHORIZED</h1>
-                        <p style="font-size:20px;">Your rank is ${rank}. Access requires Rank 45+.</p>
-                        <button onclick="location.href='index.html'" style="margin-top:20px; padding:10px 20px; background:#444; color:white; border:none; border-radius:5px; cursor:pointer;">Return Home</button>
-                    </div>
-                `;
-                return;
+                }).join('');
+            } catch (e) {
+                listElement.innerHTML = `<p style="text-align:center; color:var(--red);">Unable to connect to the Trello Brain.</p>`;
             }
-
-            user = { username: uname, loggedIn: true, rank: rank };
-            document.getElementById('user-display').innerText = `Welcome, ${uname} (Rank ${rank})`;
-            document.getElementById('auth-btn').innerText = "Logout";
-            document.getElementById('auth-btn').onclick = () => {
-                 location.href = window.location.pathname;
-            };
         }
-        fetchSessions();
-    };
 
-    // ... (rest of your fetchSessions, join, and unbook functions) ...
+        function getTagColor(trelloColor) {
+            const colors = {
+                'blue_light': '#0084ff',
+                'green_light': '#00e676',
+                'purple_light': '#9c27b0',
+                'red_light': '#ff5252',
+                'yellow_light': '#ffd740'
+            };
+            return colors[trelloColor] || '#444';
+        }
+
+        async function join(cardId, sessionName) {
+            const res = await fetch(`${RENDER_URL}/api/join`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ cardId, username: user.username, sessionName })
+            });
+            if (res.ok) fetchSessions();
+        }
+
+        async function unbook(cardId, sessionName) {
+            const res = await fetch(`${RENDER_URL}/api/unbook`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ cardId, username: user.username, sessionName })
+            });
+            if (res.ok) fetchSessions();
+        }
     </script>
 </body>
 </html>
