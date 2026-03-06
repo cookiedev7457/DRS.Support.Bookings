@@ -5,74 +5,76 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DRS | Staff Bookings</title>
     <style>
-        :root { --primary: #0084ff; --bg: #0a0a0a; --card: #161616; --text: #fff; --gray: #888; }
+        :root { --primary: #0084ff; --bg: #050505; --card: #121212; --text: #ffffff; --gray: #a0a0a0; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 40px 20px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
         
-        /* Main Banner Styling */
-        .main-banner { width: 100%; max-width: 400px; margin-bottom: 25px; filter: drop-shadow(0 0 10px rgba(255,255,255,0.1)); }
+        /* Branded Banners */
+        .main-banner { width: 100%; max-width: 450px; margin-bottom: 20px; filter: drop-shadow(0 0 20px rgba(255,255,255,0.05)); }
+        .corner-logo { position: fixed; bottom: 20px; right: 20px; width: 45px; opacity: 0.25; filter: grayscale(1); transition: 0.3s; pointer-events: none; }
 
-        .container { width: 100%; max-width: 600px; background: var(--card); padding: 30px; border-radius: 12px; border: 1px solid #222; position: relative; z-index: 1; }
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 20px; margin-bottom: 20px; }
-        .session-card { background: #1f1f1f; padding: 20px; margin: 15px 0; border-radius: 10px; border-left: 5px solid var(--primary); }
+        .container { width: 100%; max-width: 650px; background: var(--card); padding: 35px; border-radius: 15px; border: 1px solid #1f1f1f; box-shadow: 0 15px 40px rgba(0,0,0,0.8); }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #222; padding-bottom: 20px; margin-bottom: 25px; }
         
-        /* Tag Colors */
-        .tag { font-size: 10px; padding: 4px 10px; border-radius: 4px; margin-right: 6px; font-weight: bold; color: #000; text-transform: uppercase; display: inline-block; margin-bottom: 10px; }
+        .session-card { background: #1a1a1a; padding: 20px; margin: 15px 0; border-radius: 12px; border-left: 4px solid var(--primary); transition: 0.2s; }
+        .session-card:hover { background: #202020; transform: scale(1.01); }
         
-        .btn { padding: 12px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; transition: 0.2s; }
+        /* Tag System */
+        .tag { font-size: 10px; padding: 5px 12px; border-radius: 5px; margin-right: 8px; font-weight: 800; color: #000; text-transform: uppercase; display: inline-block; margin-bottom: 12px; }
+        
+        .btn { padding: 14px 24px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; transition: 0.3s; font-size: 14px; }
         .btn-blue { background: var(--primary); color: white; }
-        .btn-outline { background: transparent; border: 1px solid var(--primary); color: var(--primary); }
-        .req-box { background: #000; padding: 10px; border-radius: 6px; margin: 12px 0; font-size: 13px; color: #ccc; border: 1px solid #333; }
+        .btn-blue:hover { background: #0073e6; box-shadow: 0 0 15px rgba(0,132,255,0.3); }
+        .btn-outline { background: transparent; border: 1.5px solid var(--primary); color: var(--primary); }
+        .btn-outline:hover { background: var(--primary); color: white; }
 
-        /* Bottom Corner Icon */
-        .corner-logo { position: fixed; bottom: 20px; right: 20px; width: 60px; opacity: 0.4; transition: 0.3s; pointer-events: none; }
-        .corner-logo:hover { opacity: 1; }
+        .req-box { background: #000; padding: 12px; border-radius: 8px; margin: 15px 0; font-size: 13px; color: #ddd; border: 1px solid #222; line-height: 1.5; }
+        #user-display { background: #000; padding: 8px 15px; border-radius: 20px; font-size: 12px; color: var(--primary); display: inline-block; margin-bottom: 10px; border: 1px solid #111; }
     </style>
 </head>
 <body>
 
-    <img src="dDRSFull_NoBackground.png" alt="DRS Banner" class="main-banner">
+    <img src="https://i.postimg.cc/WbgtW4FK/d-DRSFull-No-Background.png" alt="DRS" class="main-banner">
 
-    <div class="container" id="main-container">
+    <div class="container">
         <div class="header">
-            <h2 style="margin:0; letter-spacing: 1px;">TRAININGS</h2>
-            <button id="auth-btn" class="btn btn-blue" style="width:auto;" onclick="login()">Login</button>
+            <div style="text-align: left;">
+                <h2 style="margin:0; letter-spacing: 1.5px; font-weight: 900; font-size: 24px;">TRAININGS</h2>
+                <div id="user-display">Checking Session...</div>
+            </div>
+            <button id="auth-btn" class="btn btn-blue" style="width:auto;" onclick="login()">Login with Roblox</button>
         </div>
         
-        <p id="user-display" style="color: var(--gray); font-size: 14px;">Initializing Secure Session...</p>
-
         <div id="session-list">
-            <p style="text-align:center; color:#444;">Fetching active data...</p>
+            <p style="text-align:center; color:#333;">Syncing with Trello...</p>
         </div>
     </div>
 
-    <img src="d_NoBackground.png" alt="DRS Icon" class="corner-logo">
+    <img src="https://i.postimg.cc/CKL1xHv7/d-No-Background.png" alt="Icon" class="corner-logo">
 
     <script>
         const RENDER_URL = "https://drs-support-bookings.onrender.com";
         let user = { username: null, loggedIn: false };
 
-        function getTagColor(c) {
-            const colors = { green:'#61bd4f', yellow:'#f2d600', orange:'#ff9f1a', red:'#eb5a46', purple:'#c377e0', blue:'#0079bf', sky:'#00c2e0', lime:'#51e898', black:'#344563' };
-            return colors[c] || '#888';
-        }
+        const tagMap = { green:'#61bd4f', yellow:'#f2d600', orange:'#ff9f1a', red:'#eb5a46', purple:'#c377e0', blue:'#0079bf', sky:'#00c2e0', lime:'#51e898', black:'#344563' };
 
         window.onload = async () => {
             const params = new URLSearchParams(window.location.search);
-            if (params.get('error')) alert("Access Denied: Rank 45+ Required.");
+            if (params.get('error')) alert("Access Denied: You must be Rank 45+ in the Group.");
 
             try {
                 const res = await fetch(`${RENDER_URL}/api/me`, { credentials: 'include' });
                 const data = await res.json();
                 if (data.loggedIn) {
                     user = { ...data.user, loggedIn: true };
-                    document.getElementById('user-display').innerText = `Active Session: ${user.username}`;
+                    document.getElementById('user-display').innerText = `SESSION: ${user.username.toUpperCase()}`;
                     document.getElementById('auth-btn').innerText = "Logout";
+                    document.getElementById('auth-btn').style.background = "#222";
                     document.getElementById('auth-btn').onclick = () => location.href = `${RENDER_URL}/logout`;
                 } else {
-                    document.getElementById('user-display').innerText = "Guest Mode";
+                    document.getElementById('user-display').innerText = "STATUS: GUEST MODE";
                 }
             } catch (e) {
-                document.getElementById('user-display').innerText = "Server Connection Error";
+                document.getElementById('user-display').innerText = "STATUS: OFFLINE";
             }
             fetchSessions();
         };
@@ -83,24 +85,24 @@
                 const data = await res.json();
                 document.getElementById('session-list').innerHTML = data.map(s => `
                     <div class="session-card">
-                        ${s.tags.map(t => `<span class="tag" style="background:${getTagColor(t.color)}">${t.name}</span>`).join('')}
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <strong style="font-size:18px;">${s.sessionName}</strong>
-                            <span style="color:var(--primary); font-size:12px;">Host: ${s.hostName}</span>
+                        ${s.tags.map(t => `<span class="tag" style="background:${tagMap[t.color] || '#888'}">${t.name}</span>`).join('')}
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                            <strong style="font-size:19px; display:block; margin-bottom:5px;">${s.sessionName}</strong>
+                            <span style="color:var(--primary); font-size:11px; font-weight:900;">HOST: ${s.hostName}</span>
                         </div>
-                        <div class="req-box"><strong>Requirements:</strong> ${s.requirements}</div>
+                        <div class="req-box"><strong>INFO:</strong> ${s.requirements}</div>
                         ${!user.loggedIn ? 
                             '<button class="btn btn-outline" onclick="login()">Login to Book</button>' : 
                             (user.username === s.hostName ? 
-                                '<button class="btn" style="background:#222; color:#444;" disabled>Hosting</button>' : 
+                                '<button class="btn" style="background:#222; color:#555;" disabled>HOSTING</button>' : 
                                 (s.participants.includes(user.username) ? 
-                                    '<button class="btn" style="background:#440000; color:#fff;">Already Booked</button>' : 
-                                    `<button class="btn btn-blue" onclick="join('${s.id}')">Book Spot</button>`)
+                                    '<button class="btn" style="background:#300; color:#f55;">CANCEL BOOKING</button>' : 
+                                    `<button class="btn btn-blue" onclick="join('${s.id}')">RESERVE SPOT</button>`)
                             )
                         }
                     </div>`).join('');
             } catch (e) {
-                document.getElementById('session-list').innerHTML = "<p style='color:red; text-align:center;'>Database Offline</p>";
+                document.getElementById('session-list').innerHTML = "<p style='color:#500; text-align:center;'>API CONNECTION FAILED</p>";
             }
         }
 
