@@ -97,6 +97,39 @@
             });
             fetchSessions();
         }
+
+    const RENDER_URL = "https://drs-support-bookings.onrender.com";
+    let user = { username: null, loggedIn: false, rank: 0 };
+
+    window.onload = async () => {
+        const params = new URLSearchParams(window.location.search);
+        const uname = params.get('username');
+        const rank = parseInt(params.get('rank')) || 0;
+
+        if (uname) {
+            // THE RANK GATE
+            if (rank < 45) {
+                document.body.innerHTML = `
+                    <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background:#121212; color:white; font-family:sans-serif; text-align:center;">
+                        <h1 style="color:#ff4747; font-size:50px;">🚫 UNAUTHORIZED</h1>
+                        <p style="font-size:20px;">Your rank is ${rank}. Access requires Rank 45+.</p>
+                        <button onclick="location.href='index.html'" style="margin-top:20px; padding:10px 20px; background:#444; color:white; border:none; border-radius:5px; cursor:pointer;">Return Home</button>
+                    </div>
+                `;
+                return;
+            }
+
+            user = { username: uname, loggedIn: true, rank: rank };
+            document.getElementById('user-display').innerText = `Welcome, ${uname} (Rank ${rank})`;
+            document.getElementById('auth-btn').innerText = "Logout";
+            document.getElementById('auth-btn').onclick = () => {
+                 location.href = window.location.pathname;
+            };
+        }
+        fetchSessions();
+    };
+
+    // ... (rest of your fetchSessions, join, and unbook functions) ...
     </script>
 </body>
 </html>
