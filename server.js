@@ -7,18 +7,15 @@ const app = express();
 app.use(express.json());
 app.use(cors({ origin: 'https://cookiedev7457.github.io' }));
 
-// Securely pull variables from the server environment
 const { 
-    TRELLO_KEY, 
-    TRELLO_TOKEN, 
-    TRELLO_LIST_ID, 
-    CLIENT_ID, 
-    CLIENT_SECRET, 
-    REDIRECT_URI,
+    TRELLO_KEY, TRELLO_TOKEN, TRELLO_LIST_ID, 
+    CLIENT_ID, CLIENT_SECRET, REDIRECT_URI,
     DISCORD_WEBHOOK_URL 
 } = process.env;
 
-// Helper function for Discord alerts
+const MY_ROBLOX_GROUP_ID = 12734419;
+
+// Helper: Discord Webhook Sender
 async function sendDiscordAlert(title, message, color = 0x0084ff) {
     if (!DISCORD_WEBHOOK_URL) return;
     try {
@@ -30,17 +27,16 @@ async function sendDiscordAlert(title, message, color = 0x0084ff) {
                 timestamp: new Date()
             }]
         });
-    } catch (err) { console.error("Webhook failed"); }
+    } catch (err) { console.error("Webhook Error:", err.message); }
 }
 
-// FETCH SESSIONS + CLEAN TEXT + TAGS
+// 1. GET SESSIONS (Cleans ** and fetches Tags)
 app.get('/api/sessions', async (req, res) => {
     try {
         const url = `https://api.trello.com/1/lists/${TRELLO_LIST_ID}/cards?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}&checklists=all`;
         const response = await axios.get(url);
         
         const sessions = response.data.map(card => {
-            // Remove ** from description
             const cleanDesc = card.desc.replace(/\*\*/g, '');
             const hostMatch = cleanDesc.match(/Host:\s*(.*)/i);
             const reqMatch = cleanDesc.match(/Requirements:\s*(.*)/i);
@@ -51,16 +47,21 @@ app.get('/api/sessions', async (req, res) => {
                 hostName: hostMatch ? hostMatch[1].trim() : "TBD",
                 requirements: reqMatch ? reqMatch[1].trim() : "No requirements listed",
                 participants: card.checklists[0] ? card.checklists[0].checkItems.map(item => item.name) : [],
-                tags: card.labels.map(l => ({ name: l.name, color: l.color })) //
+                tags: card.labels.map(l => ({ name: l.name, color: l.color }))
             };
         });
         res.json(sessions);
-    } catch (err) { res.status(500).json({ error: "Fetch failed" }); }
+    } catch (err) { res.status(500).json({ error: "Trello Fetch Failed" }); }
 });
 
-// JOIN SESSION + WEBHOOK
+// 2. JOIN SESSION (Anti-Self Book + Webhook)
 app.post('/api/join', async (req, res) => {
-    const { cardId, username, sessionName } = req.body;
+    const { cardId, username, sessionName, hostName } = req.body;
+    
+    if (username === hostName) {
+        return res.status(400).json({ error: "You cannot book your own training!" });
+    }
+
     try {
         const checkUrl = `https://api.trello.com/1/cards/${cardId}/checklists?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`;
         const checkRes = await axios.get(checkUrl);
@@ -75,12 +76,12 @@ app.post('/api/join', async (req, res) => {
             name: username
         });
 
-        await sendDiscordAlert("📅 Session Booked", `**${username}** has joined **${sessionName}**.`, 0x00ff00); //
+        await sendDiscordAlert("📅 Session Booked", `**${username}** joined **${sessionName}**\n**Host:** ${hostName}`, 0x00ff00);
         res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: "Booking failed" }); }
+    } catch (err) { res.status(500).json({ error: "Join Failed" }); }
 });
 
-// UNBOOK SESSION + WEBHOOK
+// 3. UNBOOK SESSION
 app.post('/api/unbook', async (req, res) => {
     const { cardId, username, sessionName } = req.body;
     try {
@@ -92,14 +93,14 @@ app.post('/api/unbook', async (req, res) => {
             const item = checklist.checkItems.find(i => i.name === username);
             if (item) {
                 await axios.delete(`https://api.trello.com/1/checklists/${checklist.id}/checkItems/${item.id}?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`);
-                await sendDiscordAlert("❌ Session Unbooked", `**${username}** has left **${sessionName}**.`, 0xffaa00); //
+                await sendDiscordAlert("❌ Session Unbooked", `**${username}** left **${sessionName}**`, 0xffaa00);
             }
         }
         res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: "Unbook failed" }); }
+    } catch (err) { res.status(500).json({ error: "Unbook Failed" }); }
 });
 
-// CALLBACK + RANK CHECK
+// 4. OAUTH CALLBACK (Rank Gate 45)
 app.get('/callback', async (req, res) => {
     try {
         const code = req.query.code;
@@ -114,19 +115,18 @@ app.get('/callback', async (req, res) => {
         const username = userRes.data.preferred_username;
         const userId = userRes.data.sub;
 
-        // Fetch Rank (Update 1234567 to your actual Roblox Group ID)
         const groupRes = await axios.get(`https://groups.roblox.com/v1/users/${userId}/groups/roles`);
-        const group = groupRes.data.data.find(g => g.group.id === 1234567); 
-        const rank = group ? group.role.rank : 0;
+        const groupData = groupRes.data.data.find(g => g.group.id === MY_ROBLOX_GROUP_ID); 
+        const rank = groupData ? groupData.role.rank : 0;
 
         if (rank < 45) {
-            await sendDiscordAlert("🚫 Unauthorized Access", `**${username}** (Rank ${rank}) tried to log in but was blocked.`, 0xff4747); //
+            await sendDiscordAlert("🚫 Access Denied", `**${username}** (Rank ${rank}) was blocked.`, 0xff4747);
         } else {
-            await sendDiscordAlert("🔑 System Login", `**${username}** (Rank ${rank}) has logged in.`, 0x0084ff); //
+            await sendDiscordAlert("🔑 System Login", `**${username}** (Rank ${rank}) logged in.`, 0x0084ff);
         }
 
         res.redirect(`https://cookiedev7457.github.io/DRS.Support.Bookings/public/index.html?username=${username}&rank=${rank}`);
-    } catch (err) { res.status(500).send("Auth Error"); }
+    } catch (err) { res.status(500).send("Auth Failed"); }
 });
 
-app.listen(10000, () => console.log("Trello Brain is Online"));
+app.listen(10000, () => console.log("System Online"));
