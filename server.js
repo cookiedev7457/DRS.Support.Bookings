@@ -6,33 +6,35 @@ require('dotenv').config();
 
 const app = express();
 
-// --- MIDDLEWARE ---
-app.use(express.json());
+// 1. DYNAMIC CORS: Crucial for cross-site cookies
 app.use(cors({ 
     origin: 'https://cookiedev7457.github.io', 
-    credentials: true 
+    credentials: true,
+    methods: ['GET', 'POST', 'OPTIONS']
 }));
 
+// 2. TRUST PROXY: Required for Render's HTTPS to work with cookies
+app.set('trust proxy', 1); 
+
+// 3. SECURE SESSION CONFIG
 app.use(session({
-    secret: 'DRS_SUPER_SECRET_KEY_2026', // Change this to any random string
+    secret: 'DRS_ULTIMATE_SECURE_KEY_2026', 
     resave: false,
     saveUninitialized: false,
+    proxy: true,
+    name: 'DRS_Auth', // Custom name to avoid generic detection
     cookie: { 
         secure: true, 
-        sameSite: 'none', 
-        maxAge: 3600000 * 12 // 12 Hours
+        sameSite: 'none', // MUST be 'none' for GitHub + Render
+        httpOnly: true,
+        maxAge: 3600000 * 24 // 24 Hours
     }
 }));
 
-const { 
-    TRELLO_KEY, TRELLO_TOKEN, TRELLO_LIST_ID, 
-    CLIENT_ID, CLIENT_SECRET, REDIRECT_URI,
-    DISCORD_WEBHOOK_URL 
-} = process.env;
-
+const { TRELLO_KEY, TRELLO_TOKEN, TRELLO_LIST_ID, CLIENT_ID, CLIENT_SECRET, REDIRECT_URI, DISCORD_WEBHOOK_URL } = process.env;
 const MY_ROBLOX_GROUP_ID = 12734419;
 
-// --- DISCORD WEBHOOK WITH RATE LIMIT PROTECTION ---
+// Discord Webhook with Rate Limit Protection
 async function sendDiscordAlert(title, message, color = 0x0084ff) {
     if (!DISCORD_WEBHOOK_URL) return;
     try {
@@ -40,40 +42,32 @@ async function sendDiscordAlert(title, message, color = 0x0084ff) {
             embeds: [{ title, description: message, color, timestamp: new Date() }]
         });
     } catch (err) { 
-        if (err.response && err.response.status === 429) {
-            console.log("Discord Rate Limit Hit - Skipping this alert.");
-        } else {
-            console.error("Webhook Error:", err.message);
-        }
+        if (err.response && err.response.status === 429) console.log("Discord Busy - Alert skipped.");
     }
 }
 
-// --- ROUTES ---
-
-// Who am I check
+// ROUTE: Check Login Status
 app.get('/api/me', (req, res) => {
-    if (req.session.user) {
+    if (req.session && req.session.user) {
         res.json({ loggedIn: true, user: req.session.user });
     } else {
         res.json({ loggedIn: false });
     }
 });
 
-// Fetch Trello Cards
+// ROUTE: Fetch Sessions
 app.get('/api/sessions', async (req, res) => {
     try {
         const url = `https://api.trello.com/1/lists/${TRELLO_LIST_ID}/cards?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}&checklists=all`;
         const response = await axios.get(url);
         const sessions = response.data.map(card => {
             const cleanDesc = card.desc.replace(/\*\*/g, '');
-            const hostMatch = cleanDesc.match(/Host:\s*(.*)/i);
-            const reqMatch = cleanDesc.match(/Requirements:\s*(.*)/i);
             return {
                 id: card.id,
                 sessionName: card.name,
-                hostName: hostMatch ? hostMatch[1].trim() : "TBD",
-                requirements: reqMatch ? reqMatch[1].trim() : "No requirements listed",
-                participants: card.checklists[0] ? card.checklists[0].checkItems.map(item => item.name) : [],
+                hostName: (cleanDesc.match(/Host:\s*(.*)/i) || [])[1]?.trim() || "TBD",
+                requirements: (cleanDesc.match(/Requirements:\s*(.*)/i) || [])[1]?.trim() || "N/A",
+                participants: card.checklists[0]?.checkItems.map(item => item.name) || [],
                 tags: card.labels.map(l => ({ name: l.name, color: l.color }))
             };
         });
@@ -81,81 +75,40 @@ app.get('/api/sessions', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Fetch Failed" }); }
 });
 
-// Join
-app.post('/api/join', async (req, res) => {
-    if (!req.session.user) return res.status(401).json({ error: "Not logged in" });
-    const { cardId, sessionName, hostName } = req.body;
-    const { username } = req.session.user;
-
-    if (username === hostName) return res.status(400).json({ error: "You are the host!" });
-
-    try {
-        const checkUrl = `https://api.trello.com/1/cards/${cardId}/checklists?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`;
-        const checkRes = await axios.get(checkUrl);
-        let checklistId = checkRes.data[0]?.id;
-        if (!checklistId) {
-            const newCheck = await axios.post(checkUrl, { name: "Confirmed Staff" });
-            checklistId = newCheck.data.id;
-        }
-        await axios.post(`https://api.trello.com/1/checklists/${checklistId}/checkItems?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`, { name: username });
-        await sendDiscordAlert("📅 Session Booked", `**${username}** joined **${sessionName}**`, 0x00ff00);
-        res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: "Join Failed" }); }
-});
-
-// Unbook
-app.post('/api/unbook', async (req, res) => {
-    if (!req.session.user) return res.status(401).json({ error: "Not logged in" });
-    const { cardId, sessionName } = req.body;
-    const { username } = req.session.user;
-    try {
-        const checkUrl = `https://api.trello.com/1/cards/${cardId}/checklists?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`;
-        const checkRes = await axios.get(checkUrl);
-        const checklist = checkRes.data[0];
-        if (checklist) {
-            const item = checklist.checkItems.find(i => i.name === username);
-            if (item) {
-                await axios.delete(`https://api.trello.com/1/checklists/${checklist.id}/checkItems/${item.id}?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`);
-                await sendDiscordAlert("❌ Session Unbooked", `**${username}** left **${sessionName}**`, 0xffaa00);
-            }
-        }
-        res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: "Unbook Failed" }); }
-});
-
-// OAuth Callback
+// ROUTE: OAuth Callback (THE FIX)
 app.get('/callback', async (req, res) => {
     try {
         const code = req.query.code;
         const tokenRes = await axios.post('https://apis.roblox.com/oauth/v1/token', new URLSearchParams({
             client_id: CLIENT_ID, client_secret: CLIENT_SECRET, grant_type: 'authorization_code', code, redirect_uri: REDIRECT_URI
-        }), { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+        }));
 
         const userRes = await axios.get('https://apis.roblox.com/oauth/v1/userinfo', {
             headers: { Authorization: `Bearer ${tokenRes.data.access_token}` }
         });
 
-        const username = userRes.data.preferred_username;
         const userId = userRes.data.sub;
+        const username = userRes.data.preferred_username;
 
         const groupRes = await axios.get(`https://groups.roblox.com/v1/users/${userId}/groups/roles`);
         const groupData = groupRes.data.data.find(g => g.group.id === MY_ROBLOX_GROUP_ID); 
         const rank = groupData ? groupData.role.rank : 0;
 
         if (rank < 45) {
-            await sendDiscordAlert("🚫 Access Denied", `**${username}** (Rank ${rank}) blocked.`, 0xff4747);
             return res.redirect(`https://cookiedev7457.github.io/DRS.Support.Bookings/public/index.html?error=unauthorized`);
         }
 
+        // STORE IN SESSION
         req.session.user = { username, rank };
-        await sendDiscordAlert("🔑 System Login", `**${username}** (Rank ${rank}) logged in.`, 0x0084ff);
-        
-        // --- FIXED: Redirect to CLEAN URL ---
-        res.redirect(`https://cookiedev7457.github.io/DRS.Support.Bookings/public/index.html`);
+
+        // THE FIX: Manually save before redirecting to clear the URL
+        req.session.save(() => {
+            res.redirect(`https://cookiedev7457.github.io/DRS.Support.Bookings/public/index.html`);
+        });
+
     } catch (err) { res.status(500).send("Auth Failed"); }
 });
 
-// Logout
 app.get('/logout', (req, res) => {
     req.session.destroy();
     res.redirect(`https://cookiedev7457.github.io/DRS.Support.Bookings/public/index.html`);
